@@ -15,7 +15,7 @@ bin/rp.ts          launcher: generates the prompt, starts claude in a story fold
 src/               story on disk, library resolution, prompt rendering (pure, tested)
 server/            the `world` MCP server (stdio, Bun) and its store
 plugin/            the Claude Code plugin: manifest, prompts/, hooks/, skills/, commands/, mod/
-stories/           the example story; players' stories live in ~/.claude-roleplay/
+stories/           the example story; players' stories live in ~/.storyteller/
 templates/         skeletons `rp new` copies
 scripts/           opt-in tools that make real model calls; never run by bun test
 docs/              spec, brief, decisions

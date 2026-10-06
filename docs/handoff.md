@@ -30,9 +30,9 @@ status line), skills and commands, plus a small launcher.
 - **Launcher** `bun run rp`: no argument opens a story picker (last played
   first); `rp <story>` continues that story's session or starts one; `rp new
   <name>` runs a blank-start interview; `rp install` scaffolds the home.
-- **Story on disk** under `~/.claude-roleplay/stories/<story>/`: `story.md`,
+- **Story on disk** under `~/.storyteller/stories/<story>/`: `story.md`,
   `characters/`, `lore/`, `directives/`, `scenes/NNN-slug/{scene.md,log.jsonl}`,
-  `.rp/` machine state. Shared library in `~/.claude-roleplay/library/`.
+  `.rp/` machine state. Shared library in `~/.storyteller/library/`.
 - **World MCP server** (`server/`): cards, lore, directives, scenes (open,
   close, rename, state), widgets, dice, recall over an embedding index.
 - **Hooks** (`plugin/hooks/`): register tag, lore and directive activation and
@@ -44,7 +44,7 @@ status line), skills and commands, plus a small launcher.
   rules, coding-reminder quieting, the Haiku notes job that keeps each scene's
   `## Now` and `## Notes` current.
 - **Status line** (`plugin/statusline.ts`): two-line default, configurable in
-  `~/.claude-roleplay/statusline.json`; usage-coloured meters.
+  `~/.storyteller/statusline.json`; usage-coloured meters.
 - **Skills**: interview, scene close, invent-and-record, `/storyteller:recap`.
 - **Lorebooks slice 1** (spec §20): full entry schema, library books,
   character and place scope, the activation pipeline with recursion, weighted
@@ -63,7 +63,7 @@ status line), skills and commands, plus a small launcher.
 
 The player's own stories have not been migrated to the new lore fields (they
 load fine with defaults). The command, if they ask:
-`bun scripts/migrate-lore.ts ~/.claude-roleplay/stories/* ~/.claude-roleplay/library`.
+`bun scripts/migrate-lore.ts ~/.storyteller/stories/* ~/.storyteller/library`.
 
 ## How work is done here
 

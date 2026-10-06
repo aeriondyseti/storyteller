@@ -1,4 +1,4 @@
-# claude-roleplay
+# storyteller
 
 Roleplay and collaborative storytelling inside the Claude Code TUI. A
 Storyteller (Vex, by default) narrates, plays the cast and keeps the world
@@ -17,7 +17,7 @@ What the system does and how it behaves is in [`docs/spec.md`](docs/spec.md).
 ```sh
 bun install
 bun link        # puts `rp` on your PATH
-rp install      # creates ~/.claude-roleplay/{stories,library,.claude/skills}
+rp install      # creates ~/.storyteller/{stories,library,.claude/skills}
 ```
 
 Or skip the link and run it from the repo with `bun run rp <args>`.
@@ -59,12 +59,12 @@ switch, edit, add or delete directives.
 
 ## Where things live
 
-- Stories: `~/.claude-roleplay/stories/<name>/`, one folder per story. Set
+- Stories: `~/.storyteller/stories/<name>/`, one folder per story. Set
   `RP_STORIES` to use another folder.
-- Shared characters, lore and directives: `~/.claude-roleplay/library/`
+- Shared characters, lore and directives: `~/.storyteller/library/`
   (`characters/`, `lore/`, `directives/`). Set `RP_LIBRARY` to use another
   folder.
-- Your own skills for every story: `~/.claude-roleplay/.claude/skills/`
+- Your own skills for every story: `~/.storyteller/.claude/skills/`
   (empty to begin with). Claude Code reads it because the stories folder sits
   inside it; a story's own `.claude/skills/` works too.
 - Each story folder holds `story.md`, `characters/`, `lore/`, `directives/`
@@ -86,7 +86,7 @@ then context used, plan usage (five-hour and weekly, on Pro and Max plans),
 turns since the notes were updated and whether the log saved. Labels are
 dark and values bold; each bar is green under 60%, yellow to 80% and red
 above. To lay out your own, edit
-`~/.claude-roleplay/statusline.json` by hand and check it with
+`~/.storyteller/statusline.json` by hand and check it with
 `bun plugin/statusline.ts --check`. The format, the default layout as a file
 and the list of sources are in [spec section 19.5](docs/spec.md#195-status-line-widgets).
 

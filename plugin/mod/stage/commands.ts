@@ -8,7 +8,7 @@ import { keepSkillEntries } from "./text.ts";
 // commands, bundled skills and the built-in plugins' skills, mostly for
 // coding. This hides those from the menu, except the short list below.
 // Kept as well: what our plugin ships and what the project layer brings
-// (~/.claude-roleplay/.claude or the story's own .claude).
+// (~/.storyteller/.claude or the story's own .claude).
 // The same rule trims the skill listing the model reads, so the Skill tool
 // offers the Storyteller its own procedures (plugin/skills) and project
 // skills, never a coding one. Agent types need no hook: the Storyteller has

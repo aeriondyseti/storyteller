@@ -12,7 +12,7 @@ import { latestExchange } from "./hooks/lib/transcript.ts";
 // command the launcher wires in place of the player's own. Claude Code sends
 // JSON on stdin (transcript_path, context_window, model, rate_limits, ...)
 // and shows each line printed. What the lines say is the player's layout in
-// ~/.claude-roleplay/statusline.json, or with none the default (coloured:
+// ~/.storyteller/statusline.json, or with none the default (coloured:
 // labels dark, values bold, meters by usage):
 //
 //   Model: Opus 5.5 (medium) | Narrator: Vex (copilot) | Persona: asset1 | Story: Build Failed Successfully | Scene: Scene 1: Spawn Point

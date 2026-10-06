@@ -9,7 +9,7 @@ import path from "node:path";
 // the spec table in one commit.
 
 // Names starting with "claude-" are reserved by Claude Code, so the plugin is
-// "storyteller" even though the repo is claude-roleplay.
+// "storyteller", without the prefix.
 export const pluginName = "storyteller";
 
 export type Config = {

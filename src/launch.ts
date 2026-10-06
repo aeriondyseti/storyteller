@@ -64,7 +64,7 @@ export function claudeArgs(
   args.push("--strict-mcp-config");
   // Quieting (spec 10): the player's user layer (~/.claude: settings, plugins,
   // skills, agents, settings hooks) stays out of a story session. The project
-  // layer stays: skills and agents under ~/.claude-roleplay/.claude and the
+  // layer stays: skills and agents under ~/.storyteller/.claude and the
   // story's own .claude. --restricted would drop both layers, so it is not used.
   args.push("--setting-sources", storySettingSources.join(","));
   args.push("--settings", JSON.stringify(sessionSettings(config)));

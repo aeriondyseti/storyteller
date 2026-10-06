@@ -5,7 +5,7 @@
 //   bun scripts/migrate-lore.ts <story or library folder> [more folders...]
 //
 // For a player's home:
-//   bun scripts/migrate-lore.ts ~/.claude-roleplay/stories/* ~/.claude-roleplay/library
+//   bun scripts/migrate-lore.ts ~/.storyteller/stories/* ~/.storyteller/library
 
 import { migrateLore } from "../src/migrate-lore.ts";
 

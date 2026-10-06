@@ -14,14 +14,14 @@ function restore(name: string, value: string | undefined) {
 }
 
 describe("paths", () => {
-  test("roots live under ~/.claude-roleplay", () => {
+  test("roots live under ~/.storyteller", () => {
     const home = posixPath(os.homedir());
     delete process.env.RP_STORIES;
     delete process.env.RP_LIBRARY;
-    expect(posixPath(rpHome())).toBe(`${home}/.claude-roleplay`);
-    expect(posixPath(libraryRoot())).toBe(`${home}/.claude-roleplay/library`);
-    expect(posixPath(homeSkillsDir())).toBe(`${home}/.claude-roleplay/.claude/skills`);
-    expect(posixPath(storiesRoot())).toBe(`${home}/.claude-roleplay/stories`);
+    expect(posixPath(rpHome())).toBe(`${home}/.storyteller`);
+    expect(posixPath(libraryRoot())).toBe(`${home}/.storyteller/library`);
+    expect(posixPath(homeSkillsDir())).toBe(`${home}/.storyteller/.claude/skills`);
+    expect(posixPath(storiesRoot())).toBe(`${home}/.storyteller/stories`);
   });
 
   test("RP_STORIES overrides the stories root", () => {

@@ -1,4 +1,4 @@
-// The player's status line layout (spec 19.5): ~/.claude-roleplay/statusline.json
+// The player's status line layout (spec 19.5): ~/.storyteller/statusline.json
 // holds lines of widget instances, each bound to a source from the catalog in
 // src/status-sources.ts. This file validates the layout and renders it to
 // text; plugin/statusline.ts reads the file and gathers the facts.

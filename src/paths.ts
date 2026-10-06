@@ -6,7 +6,7 @@ import path from "node:path";
 // every platform.
 
 export function rpHome(): string {
-  return path.join(os.homedir(), ".claude-roleplay");
+  return path.join(os.homedir(), ".storyteller");
 }
 
 export function storiesRoot(): string {

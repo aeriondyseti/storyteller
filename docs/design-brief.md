@@ -171,7 +171,7 @@ which register it is in.
 ## Plugin layout
 
 ```
-claude-roleplay/
+storyteller/
   bin/rp                      # launcher: picks a story, generates CLAUDE.md,
                               # execs `claude` with flags + --plugin-dir
   plugin/

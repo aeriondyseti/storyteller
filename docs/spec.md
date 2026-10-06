@@ -40,7 +40,7 @@ Character, plays, Persona, Impersonate, Lore, Directive). Additions:
 
 ### 3.1 First launch of a new story
 
-`rp new saltmere` creates `~/.claude-roleplay/stories/saltmere/` with a bare
+`rp new saltmere` creates `~/.storyteller/stories/saltmere/` with a bare
 `story.md` (title only) and opens the session. Vex, seeing an empty story,
 loads the `storyteller-interview` skill and speaks first, in copilot register:
 
@@ -167,15 +167,15 @@ What Vex is and does, regardless of story. Rendered into the base system prompt.
 
 ### 5.1 Roots
 
-- Stories: `~/.claude-roleplay/stories/<story>/` (override: `RP_STORIES`).
-- Library: `~/.claude-roleplay/library/` with `characters/`, `lore/`,
+- Stories: `~/.storyteller/stories/<story>/` (override: `RP_STORIES`).
+- Library: `~/.storyteller/library/` with `characters/`, `lore/`,
   `directives/` (override: `RP_LIBRARY`).
-- Skills for every story: `~/.claude-roleplay/.claude/skills/`, which Claude
+- Skills for every story: `~/.storyteller/.claude/skills/`, which Claude
   Code reads as a project ancestor of any story under the stories home.
 - `rp install` creates these folders when missing and never writes content;
   `rp new` runs it first. It prints each folder and whether it was created.
 - Configuration: Claude Code's own `settings.json`, see section 12a. There is
-  no `~/.claude-roleplay/config.json`.
+  no `~/.storyteller/config.json`.
 
 A story folder is self-describing and portable. Nothing about a story lives
 anywhere else except the Claude Code session transcripts, which are
@@ -220,7 +220,7 @@ them verbatim.
 ### 5.3 Library references
 
 `story.md` lists `uses: [characters/mira, directives/noir, lore/the-pact]`.
-Each resolves to `~/.claude-roleplay/library/<ref>.md` and is read live, so a
+Each resolves to `~/.storyteller/library/<ref>.md` and is read live, so a
 library edit reaches every story that uses it. A file with the same relative
 path inside the story **overrides** the library copy entirely. ("Extends" by
 appending is a later refinement.) Vex may copy a library item into the story
@@ -419,7 +419,7 @@ if it fails.
 - **Quieting**: engine reminders aimed at coding are dropped with
   `prompt.attachment`; auto memory is off. The rule for commands, skills and
   agents: a story session ignores the player's user level entirely and keeps
-  only our plugin, the stories home tree (`~/.claude-roleplay/.claude/*` and
+  only our plugin, the stories home tree (`~/.storyteller/.claude/*` and
   `<story>/.claude/*`) and a short list of built-in commands (`clear compact
   config cost doctor effort exit help model quit rename resume rewind
   status`). The launcher's `--setting-sources project,local` does most of it
@@ -648,7 +648,7 @@ library overrides.
 
 - Resolved (2026-10-05): the embedding model is
   `Xenova/all-MiniLM-L6-v2` (384 dimensions, int8 ONNX, ~23 MB) through
-  `@huggingface/transformers` 4.x, cached in `~/.claude-roleplay/models/`.
+  `@huggingface/transformers` 4.x, cached in `~/.storyteller/models/`.
   Confirmed under Bun 1.3.14 on Windows with no native build step
   (onnxruntime-node's blocked postinstall is not needed there); Linux still to
   confirm. Measured on the example story: first run with download ~1.5 s
@@ -689,7 +689,7 @@ Ideas the player has asked to keep, not yet scheduled. Top of the list first.
 - **Widgets.** Specified in full in section 19; ready to build.
 
 - **Status line editor CLI.** A small command (`rp statusline`) that lets the
-  player edit `~/.claude-roleplay/statusline.json` interactively: list the
+  player edit `~/.storyteller/statusline.json` interactively: list the
   catalog, add, remove and reorder widgets per line, preview with sample or
   live values, validate and save. Replaces the dropped skill and tool with
   something that runs outside a story session.
@@ -821,7 +821,7 @@ widgets:
 ### 19.5 Status line widgets
 
 The status line is always on. With no file it draws the built-in default
-(below); the player changes it by editing `~/.claude-roleplay/statusline.json`
+(below); the player changes it by editing `~/.storyteller/statusline.json`
 by hand (JSON: it is machine-shaped config) and checks the file with
 `bun <plugin>/statusline.ts --check`. There is no command or skill for it.
 Each instance is a component bound to a **source**:
@@ -1186,4 +1186,4 @@ Where the text above left room, slice 1 decided this. Code: `src/lore.ts`
   `also`, `group` and `scan` mean "none" when absent and are written only
   when set. Lists stay on one line. An entry the loader would refuse is
   reported and left alone. For a player's home:
-  `bun scripts/migrate-lore.ts ~/.claude-roleplay/stories/* ~/.claude-roleplay/library`.
+  `bun scripts/migrate-lore.ts ~/.storyteller/stories/* ~/.storyteller/library`.

@@ -8,11 +8,11 @@ import { tempDir } from "./testing/fixtures.ts";
 describe("sessionsDir", () => {
   test("encodes the story path the way Claude Code names project folders", () => {
     const dir = sessionsDir(
-      "X:\\Development\\claude-roleplay\\.claude\\stories\\the-hollow-crown",
+      "X:\\Development\\storyteller\\.claude\\stories\\the-hollow-crown",
       "C:/cfg",
     );
     expect(posixPath(dir)).toBe(
-      "C:/cfg/projects/X--Development-claude-roleplay--claude-stories-the-hollow-crown",
+      "C:/cfg/projects/X--Development-storyteller--claude-stories-the-hollow-crown",
     );
   });
 });

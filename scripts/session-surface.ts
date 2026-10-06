@@ -26,7 +26,7 @@ import { loadStory } from "../src/story.ts";
 // Bun drops a bare `--`, so every argument but ours is passed on to claude.
 // --prompt sends something else (a hidden skill typed in full; from Git Bash,
 // set MSYS_NO_PATHCONV=1 or "/storyteller:recap" arrives as a Windows path); --story runs
-// from another story folder (one under ~/.claude-roleplay/stories sees the
+// from another story folder (one under ~/.storyteller/stories sees the
 // stories home's .claude as a project ancestor).
 let prompt = "Reply with: ok";
 let storyDir = path.join(repoRoot, "stories", "the-hollow-crown");
