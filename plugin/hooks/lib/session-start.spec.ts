@@ -57,16 +57,19 @@ describe("rebuildAfterCompaction", () => {
         "",
         "Thirteen bells hang in the drowned belfry. They ring before deaths.",
         "",
-        "### The Tallow Stair",
+        "### The Tallow Stair (unknown to Corwin Hale)",
         "",
         "Steep and greasy.",
         "",
-        "### Mira's oath",
+        "### Mira's oath (unknown to Corwin Hale)",
         "",
         "She swore on the bells.",
+        "",
+        "Secret (unknown to Corwin Hale):",
+        "She lied.",
       ].join("\n"),
     );
-    // Ranked by priority (the bells have 5), and the Secret never goes in.
+    // Ranked by priority (the bells have 5); rendered as the turn renders lore.
     expect(state.injections.map((i) => [i.ref, i.turn])).toEqual([
       ["lore/tide-bells", 9],
       ["lore/the-stair", 9],

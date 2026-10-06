@@ -20,10 +20,14 @@ function lore(stem: string, data: Record<string, unknown> = {}, body = `${stem} 
     path: `/s/lore/${stem}.md`,
     source: "story",
     book: undefined,
-    ...parseLoreFields({ title: stem, ...data }, stem),
+    // Known by default here, so costs are just heading and text.
+    ...parseLoreFields({ title: stem, known: true, ...data }, stem),
     ...splitLoreBody(body),
   };
 }
+
+// The hash activation records for a lore entry: its details included.
+const hashOf = (l: LoreEntry) => contentHash({ ...l, details: l });
 
 function directive(stem: string, keys: string[], extra: Partial<Directive> = {}): Directive {
   return {
@@ -103,12 +107,12 @@ describe("activate: matching", () => {
       input({ turn: 4, prompt: "I ask about the bells and the pact." }),
     );
     expect(refs(result)).toEqual(["lore/tide-bells", "lore/the-pact"]);
-    const bells = story.lore.find((l) => l.stem === "tide-bells");
+    const bells = story.lore.find((l) => l.stem === "tide-bells") as LoreEntry;
     expect(result.injections[0]).toEqual({
       ref: "lore/tide-bells",
       turn: 4,
-      hash: contentHash({ title: bells?.title ?? "", body: bells?.body ?? "" }),
-      chars: (bells?.title.length ?? 0) + (bells?.body.length ?? 0),
+      hash: hashOf(bells),
+      chars: `### ${bells.title}\n\n${bells.body}`.length,
     });
     expect(result.report).toEqual({
       turn: 4,
@@ -146,6 +150,7 @@ describe("activate: matching", () => {
       updated: false,
       why: 'key "x"',
       chars: 7,
+      details: undefined,
     });
   });
 
@@ -312,7 +317,7 @@ describe("activate: recursion", () => {
 describe("activate: still in context", () => {
   const a = lore("a", { keys: ["x"] });
   const b = lore("b", { keys: ["x"] });
-  const injected = (entry: LoreEntry, turn: number, hash = contentHash(entry)) => ({
+  const injected = (entry: LoreEntry, turn: number, hash = hashOf(entry)) => ({
     ref: entry.ref,
     turn,
     hash,
@@ -324,7 +329,7 @@ describe("activate: still in context", () => {
     const soon = activate(only(a, b), input({ turn: 10, prompt: "x", injections }));
     expect(refs(soon)).toEqual(["lore/b"]);
     expect(cutFor(soon, "lore/a")).toBe("in context (turn 5)");
-    expect(soon.injections).toEqual([...injections, { ...injected(b, 10), chars: 7 }]);
+    expect(soon.injections).toEqual([...injections, { ...injected(b, 10), chars: 13 }]);
 
     const later = activate(only(a, b), input({ turn: 11, prompt: "x", injections }));
     expect(refs(later)).toEqual(["lore/a", "lore/b"]);
@@ -386,14 +391,15 @@ describe("activate: chance and groups", () => {
 describe("activate: budget", () => {
   test("a quarter of the budget per turn, letting a smaller entry fill the gap", () => {
     const story = only(
-      lore("big", { keys: ["x"], priority: 9 }, "b".repeat(77)),
+      lore("big", { keys: ["x"], priority: 9 }, "b".repeat(74)),
       lore("huge", { keys: ["x"], priority: 5 }, "h".repeat(196)),
       lore("small", { keys: ["x"], priority: 1 }, "s".repeat(5)),
     );
     const result = activate(story, input({ prompt: "x", budget: 400 }));
     expect(refs(result)).toEqual(["lore/big", "lore/small"]);
     expect(cutFor(result, "lore/huge")).toBe("turn budget");
-    expect(result.injections.map((i) => i.chars)).toEqual([80, 10]);
+    // "### big\n\n" and 74 characters, "### small\n\n" and 5.
+    expect(result.injections.map((i) => i.chars)).toEqual([83, 16]);
   });
 
   test("lore already in context counts against the whole budget", () => {
@@ -409,6 +415,58 @@ describe("activate: budget", () => {
 
   test("the share of the window becomes characters at 200k tokens, 4 characters each", () => {
     expect(loreBudgetChars(0.1)).toBe(80_000);
+  });
+});
+
+describe("activate: discovery and truth (spec 20.11)", () => {
+  const body = "Public.\n\n## Secret\n\nHidden.\n\n## History\n\n- Scene 1: it began.";
+  const lamps = (data: Record<string, unknown> = {}, text = body) =>
+    lore("lamps", { title: "Lamps", keys: ["lamps"], ...data }, text);
+
+  test("an entry travels with its Secret, History, truth and known", () => {
+    const [entry] = activate(only(lamps({ truth: "rumor" })), input({ prompt: "lamps" })).entries;
+    expect(entry?.details).toEqual({
+      secret: "Hidden.",
+      history: "- Scene 1: it began.",
+      truth: "rumor",
+      known: true,
+    });
+  });
+
+  test("the cost is the injected text: tags, Secret and History included", () => {
+    const cost = (data: Record<string, unknown>, player?: string) =>
+      activate(only(lamps(data)), input({ prompt: "lamps", player })).entries[0]?.chars;
+    const text = (heading: string, who: string) =>
+      `### ${heading}\n\nPublic.\n\nSecret (unknown to ${who}):\nHidden.\n\nHistory:\n- Scene 1: it began.`;
+    expect(cost({})).toBe(text("Lamps", "the player").length);
+    expect(cost({ known: false }, "Corwin")).toBe(
+      text("Lamps (unknown to Corwin)", "Corwin").length,
+    );
+  });
+
+  test("a change to any of them makes the entry eligible again, marked updated", () => {
+    const before = lamps();
+    const injections = [{ ref: before.ref, turn: 9, hash: hashOf(before), chars: 10 }];
+    const turn = (entry: LoreEntry) =>
+      activate(only(entry), input({ turn: 10, prompt: "lamps", injections }));
+    expect(refs(turn(before))).toEqual([]);
+    const changed = [
+      lamps({ known: "secret" }),
+      lamps({ truth: "false" }),
+      lamps({}, body.replace("Hidden.", "Hidden deeper.")),
+      lamps({}, `${body}\n- Scene 2: it burned.`),
+    ];
+    for (const entry of changed) {
+      expect(turn(entry).entries[0]).toMatchObject({ ref: "lore/lamps", updated: true });
+    }
+  });
+
+  test("recursion reads the public text only, never the Secret or History", () => {
+    const story = only(
+      lamps({}, "Public.\n\n## Secret\n\nThe bell knows.\n\n## History\n\n- Scene 1: bell rang."),
+      lore("bell", { keys: ["bell"] }),
+    );
+    expect(refs(activate(story, input({ prompt: "lamps" })))).toEqual(["lore/lamps"]);
   });
 });
 

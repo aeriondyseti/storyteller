@@ -44,6 +44,27 @@ describe("read tools", () => {
     expect(belfry).toContain("The tide-bells");
   });
 
+  test("search_lore reports known and truth per hit; Secret and History stay out", async () => {
+    const ctx = await worldFor();
+    await Bun.write(
+      `${ctx.storyDir}/lore/wreckers.md`,
+      "---\ntitle: The Wreckers\nkeys: [wreckers]\nknown: secret\ntruth: rumor\n---\n\nThey lure ships.\n\n## Secret\n\nThe mayor leads them.\n\n## History\n\n- Scene 2: a ship broke.\n",
+    );
+    const wreckers = await searchLore.call(ctx, { query: "wreckers" });
+    expect(wreckers).toContain("Known: yes, Secret included · truth: rumor");
+    expect(wreckers).toContain("They lure ships.");
+    expect(wreckers).not.toContain("mayor");
+    expect(wreckers).not.toContain("ship broke");
+    expect(await searchLore.call(ctx, { query: "the bells rang" })).toContain(
+      "Known: yes · truth: fact",
+    );
+    await Bun.write(
+      `${ctx.storyDir}/lore/eels.md`,
+      "---\ntitle: Eels\ntruth: false\n---\n\nEels.\n",
+    );
+    expect(await searchLore.call(ctx, { query: "eels" })).toContain("Known: no · truth: false");
+  });
+
   test("get_scene: current by default, or by number", async () => {
     const ctx = await worldFor();
     const current = await getScene.call(ctx, {});

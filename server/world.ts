@@ -4,6 +4,7 @@ import { posixPath } from "../src/paths.ts";
 import type { WorldContext } from "./context.ts";
 import { createServer, type Tool } from "./registry.ts";
 import { canonTools } from "./tools/canon.ts";
+import { discoveryTools } from "./tools/discovery.ts";
 import { readTools } from "./tools/read.ts";
 import { recall } from "./tools/recall.ts";
 import { sceneTools } from "./tools/scenes.ts";
@@ -13,7 +14,14 @@ import { stateTools } from "./tools/state.ts";
 // changing the story on disk. Started by the launcher as `bun server/world.ts`
 // with RP_STORY (story folder), optional RP_LIBRARY and RP_CONFIG.
 
-export const tools: Tool[] = [...readTools, recall, ...stateTools, ...canonTools, ...sceneTools];
+export const tools: Tool[] = [
+  ...readTools,
+  recall,
+  ...stateTools,
+  ...canonTools,
+  ...discoveryTools,
+  ...sceneTools,
+];
 
 export async function contextFromEnv(env: NodeJS.ProcessEnv = process.env): Promise<WorldContext> {
   if (!env.RP_STORY) throw new Error("RP_STORY is not set: it must name the story folder.");

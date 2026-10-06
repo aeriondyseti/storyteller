@@ -631,6 +631,40 @@ library overrides.
   `### Threads` (`- open:` / `- resolved:`), `### People` (`#### <stem>` with
   `- knows:`, `- suspects:`, `- feels:`), `### Continuity`. The notes job sends
   its input as `<persona>`, `<cast>`, `<previous_notes>` and `<turns>` blocks.
+- **Lorebooks slice 2, where 20.11 left room** (2026-10-06):
+  - *Library entries are revealed in a story copy.* `reveal_lore` and
+    `append_lore_history` on an entry from a library book first copy the
+    library file into the story's `lore/` byte for byte, then edit the copy,
+    as every other write does (5.3). What one story's character learned, or
+    what happened in one story, is not true of the others; the library file
+    is never written.
+  - *The player character's name* in the tags is the persona card's display
+    name, its stem when there is no card, `the player` when no persona is set.
+  - *Cost is the injected text.* A lore entry costs the length of exactly
+    what is injected for it: heading with tags, truth line, public text,
+    Secret and History with their labels. A directive still costs its title
+    plus text. Hashes now include Secret, History, `truth` and `known`, so
+    after this change each entry already in a session's window goes in once
+    more, marked `(updated)`.
+  - *Edits are textual.* `reveal_lore` rewrites or adds only the top-level
+    `known:` line; `append_lore_history` inserts one line after the last
+    line of `## History` (any case), or adds the section at the end of the
+    file. A file with no final newline gains one. The result is parsed before
+    it is written and refused if it does not read back as intended.
+  - *History lines* are one line: whitespace collapses, and a leading `- `
+    or `Scene <n>:` Vex wrote is dropped so the date is not doubled. The
+    scene number is the current scene's, open or closed; with no scene the
+    tool refuses.
+  - *`part: "secret"`* on an entry with no Secret section still sets
+    `known: secret` and says the entry has no Secret.
+  - *`truth: false`* written bare (YAML's boolean) reads as the `false`
+    truth.
+  - *`search_lore`* adds `Known: yes | no | yes, Secret included · truth:
+    <truth>` under each hit's keys line; it still shows the public text only.
+  - *Suggestions* are compared against lore titles and keys and against card
+    names and stems. They come last in the turn's context, on narrator and
+    copilot turns alike. The hook reads `suggest` but never writes it: when
+    it saves its state, the file's copy of `suggest` (the mod's) wins.
 
 ## 16a. Decisions (2026-10-05, second round)
 

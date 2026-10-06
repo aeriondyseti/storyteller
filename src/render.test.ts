@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { Activated } from "./activation.ts";
+import type { LoreDetails } from "./lore.ts";
 import {
   embed,
+  playerName,
   renderBible,
   renderClaudeMd,
   renderInjected,
@@ -107,6 +110,10 @@ describe("renderBible", () => {
       updated,
       why: "key",
       chars: 1,
+      details:
+        kind === "lore"
+          ? { secret: undefined, history: undefined, truth: "fact" as const, known: true }
+          : undefined,
     });
     expect(
       renderInjected([
@@ -135,6 +142,71 @@ describe("renderBible", () => {
       ].join("\n"),
     );
     expect(renderInjected([])).toBe("");
+  });
+
+  test("renderInjected: lore carries its tags, truth note, Secret and History", () => {
+    const lamps = (details: Partial<LoreDetails>, updated = false): Activated => ({
+      kind: "lore",
+      ref: "lore/lamps",
+      title: "The Lamplighters",
+      body: "They light the city.",
+      updated,
+      why: "key",
+      chars: 1,
+      details: { secret: undefined, history: undefined, truth: "fact", known: true, ...details },
+    });
+    const full = lamps(
+      {
+        truth: "false",
+        known: false,
+        secret: "They set the fires.",
+        history: "- Scene 3: the Lamp Hall burned.",
+      },
+      true,
+    );
+    expect(renderInjected([full], "Corwin")).toBe(
+      [
+        "",
+        "Lore in play:",
+        "",
+        "### The Lamplighters (updated) (false) (unknown to Corwin)",
+        "",
+        "Characters believe this; it is not true. The truth is in Secret.",
+        "",
+        "They light the city.",
+        "",
+        "Secret (unknown to Corwin):",
+        "They set the fires.",
+        "",
+        "History:",
+        "- Scene 3: the Lamp Hall burned.",
+      ].join("\n"),
+    );
+    const rumour = renderInjected([lamps({ truth: "rumor", known: true })]);
+    expect(rumour).toContain(
+      "### The Lamplighters (rumour)\n\nPeople say this; it may not be so.\n\nThey light the city.",
+    );
+    const falseNoSecret = renderInjected([lamps({ truth: "false" })]);
+    expect(falseNoSecret).toContain("\n\nCharacters believe this; it is not true.\n\n");
+    // Known but not the Secret: the heading drops the tag, the Secret keeps it.
+    const known = renderInjected([lamps({ secret: "Fires." })], "Corwin");
+    expect(known).toContain("### The Lamplighters\n\nThey light the city.");
+    expect(known).toContain("Secret (unknown to Corwin):\nFires.");
+    expect(renderInjected([lamps({ secret: "Fires.", known: "secret" })])).toContain(
+      "Secret:\nFires.",
+    );
+    expect(renderInjected([lamps({ known: false })])).toContain(
+      "### The Lamplighters (unknown to the player)",
+    );
+  });
+
+  test("playerName: the persona's card name, else its stem, else the player", async () => {
+    const story = await load(saltmereDir);
+    expect(playerName(story)).toBe(
+      story.characters.find((c) => c.stem === "corwin")?.name ?? "missing",
+    );
+    expect(playerName({ ...story, characters: [] })).toBe("corwin");
+    expect(playerName(await load(blankDir))).toBe("the player");
   });
 
   test("widgets: one line each, grouped, pane named, problems listed", async () => {

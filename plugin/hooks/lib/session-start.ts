@@ -2,7 +2,7 @@ import { activate, loreBudgetChars, sceneStateOf } from "../../../src/activation
 import { type Config, loadConfig } from "../../../src/config.ts";
 import { directiveRecord } from "../../../src/directive-deltas.ts";
 import { formatTurns, lastTurns, type Turn } from "../../../src/log.ts";
-import { renderInjected, renderStateHeader } from "../../../src/render.ts";
+import { playerName, renderInjected, renderStateHeader } from "../../../src/render.ts";
 import { type LoadOptions, loadStory, type Story, section } from "../../../src/story.ts";
 import { additionalContext, type HookInput, isStoryDir } from "./io.ts";
 import { type HookState, readState, writeState } from "./state.ts";
@@ -59,6 +59,7 @@ export function rebuildAfterCompaction(
   random?: () => number,
 ): { state: HookState; lore: string } {
   const { inForce, keyed } = directiveRecord(story.directives);
+  const player = playerName(story);
   const { entries, injections, report } = activate(story, {
     turn: state.turn,
     prompt: "",
@@ -67,9 +68,10 @@ export function rebuildAfterCompaction(
     injections: [],
     budget: loreBudgetChars(config.loreBudget),
     random,
+    player,
   });
   return {
     state: { ...state, injections, activation: report, inForce, keyedHashes: keyed },
-    lore: renderInjected(entries),
+    lore: renderInjected(entries, player),
   };
 }

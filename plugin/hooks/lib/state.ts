@@ -17,9 +17,13 @@ import type { ActivationReport, Injection } from "../../../src/activation.ts";
 //   keyedHashes ref -> hash of each keyed directive switched on
 //   sessionId   the Claude Code session the record belongs to; a new one
 //               means a fresh system prompt, so the record starts over
+//   suggested   names already passed to Vex as lore suggestions (spec
+//               20.11), so each is delivered once
 //
 // The mod's notes job keeps its own keys in the same file (notesTurn,
-// notesUpdatedAt); writeState keeps any key it does not own.
+// notesUpdatedAt, nameTally, and `suggest`: names the notes runs keep
+// listing with no lore or card). The hooks read `suggest` but never write
+// it; writeState keeps every key it does not own as the file has it.
 
 export type HookState = {
   turn: number;
@@ -29,7 +33,12 @@ export type HookState = {
   inForce?: Record<string, string>;
   keyedHashes?: Record<string, string>;
   sessionId?: string;
+  suggested?: string[];
+  // Read only: the mod owns it.
+  suggest?: string[];
 };
+
+const readOnlyKeys = ["suggest"];
 
 export function statePath(storyDir: string): string {
   return `${storyDir}/.rp/state.json`;
@@ -55,7 +64,13 @@ export async function readState(storyDir: string): Promise<HookState> {
   if (isRecord(data.inForce)) state.inForce = recordOf(data.inForce, isHash);
   if (isRecord(data.keyedHashes)) state.keyedHashes = recordOf(data.keyedHashes, isHash);
   if (typeof data.sessionId === "string") state.sessionId = data.sessionId;
+  if (Array.isArray(data.suggested)) state.suggested = names(data.suggested);
+  if (Array.isArray(data.suggest)) state.suggest = names(data.suggest);
   return state;
+}
+
+function names(list: unknown[]): string[] {
+  return list.filter((n): n is string => typeof n === "string" && n.trim() !== "");
 }
 
 function injectionsOf(value: unknown): Injection[] {
@@ -93,5 +108,8 @@ export async function writeState(storyDir: string, state: HookState): Promise<vo
   } catch {}
   // `injected` (ref -> turn) was the record before `injections` replaced it.
   delete others.injected;
-  await Bun.write(file, `${JSON.stringify({ ...others, ...state }, null, 2)}\n`);
+  const owned: Record<string, unknown> = { ...state };
+  // The mod may have rewritten these since readState; the file's copy wins.
+  for (const key of readOnlyKeys) delete owned[key];
+  await Bun.write(file, `${JSON.stringify({ ...others, ...owned }, null, 2)}\n`);
 }

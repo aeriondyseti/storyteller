@@ -1,4 +1,10 @@
-import { formatScope, type LoreAlso, type LoreScope } from "./lore.ts";
+import {
+  formatScope,
+  type LoreAlso,
+  type LoreDetails,
+  type LoreScope,
+  renderLoreEntry,
+} from "./lore.ts";
 import type { Directive, LoreEntry, Story } from "./story.ts";
 
 // Lore activation (spec 20.2): which keyed lore entries and keyed directives
@@ -37,6 +43,8 @@ export type Activated = {
   updated: boolean;
   why: string;
   chars: number;
+  // Lore only: Secret, History, truth and known travel with the entry.
+  details: LoreDetails | undefined;
 };
 
 export type Cut = { ref: string; reason: string };
@@ -90,6 +98,8 @@ export type ActivationInput = {
   // Characters lore may hold in the context window (loreBudgetChars).
   budget?: number | undefined;
   random?: (() => number) | undefined;
+  // The player character's display name, as injected lore names it.
+  player?: string | undefined;
 };
 
 export type ActivationResult = {
@@ -99,6 +109,7 @@ export type ActivationResult = {
 };
 
 export const defaultScanDepth = 3;
+export const defaultPlayer = "the player";
 export const defaultDirectiveCooldown = 6;
 export const maxRecursion = 3;
 // Cosine score (all-MiniLM-L6-v2) for a meaning match. Strict on purpose: a
@@ -135,6 +146,7 @@ type Candidate = {
   recurse: boolean;
   scan: number | undefined;
   priority: number;
+  details: LoreDetails | undefined;
 };
 
 type Match = {
@@ -289,7 +301,7 @@ export function activate(
   const entries: Activated[] = [];
   for (const m of chosen) {
     const c = m.candidate;
-    const chars = c.title.length + c.body.length;
+    const chars = cost(c, m.updated, input.player ?? defaultPlayer);
     if (used + chars > turnCap) {
       cut.push({ ref: c.ref, reason: "turn budget" });
       continue;
@@ -308,6 +320,7 @@ export function activate(
       updated: m.updated,
       why: m.why,
       chars,
+      details: c.details,
     });
   }
 
@@ -333,8 +346,25 @@ export function loreInContext(injections: readonly Injection[]): number {
   return injections.reduce((sum, i) => sum + i.chars, 0);
 }
 
-export function contentHash(entry: { title: string; body: string }): string {
-  return Bun.hash(JSON.stringify([entry.title, entry.body])).toString(16);
+// Covers everything the injected text shows (spec 20.11), so a revealed
+// secret, a new History line or a truth change makes the entry eligible again.
+export function contentHash(entry: {
+  title: string;
+  body: string;
+  details?: LoreDetails | undefined;
+}): string {
+  const d = entry.details;
+  const parts = d
+    ? [entry.title, entry.body, d.secret ?? null, d.history ?? null, d.truth, d.known]
+    : [entry.title, entry.body];
+  return Bun.hash(JSON.stringify(parts)).toString(16);
+}
+
+// Characters an entry takes in the window: a directive its title and text,
+// lore everything it is injected with (tags, notes, Secret and History).
+function cost(c: Candidate, updated: boolean, player: string): number {
+  if (!c.details) return c.title.length + c.body.length;
+  return renderLoreEntry({ title: c.title, body: c.body, updated, ...c.details }, player).length;
 }
 
 function directiveCandidate(d: Directive): Candidate {
@@ -357,6 +387,7 @@ function directiveCandidate(d: Directive): Candidate {
     recurse: false,
     scan: undefined,
     priority: Number.POSITIVE_INFINITY,
+    details: undefined,
   };
 }
 
@@ -378,6 +409,7 @@ function loreCandidate(l: LoreEntry): Candidate {
     recurse: l.recurse,
     scan: l.scan,
     priority: l.priority,
+    details: { secret: l.secret, history: l.history, truth: l.truth, known: l.known },
   };
 }
 

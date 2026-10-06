@@ -10,7 +10,7 @@ import {
 import { type Config, defaultConfig, loadConfig } from "../../../src/config.ts";
 import { type DirectiveRecord, directiveDeltas } from "../../../src/directive-deltas.ts";
 import { exchanges, lastTurns, registerOf, type Turn } from "../../../src/log.ts";
-import { renderInjected, renderStateHeader } from "../../../src/render.ts";
+import { playerName, renderInjected, renderStateHeader } from "../../../src/render.ts";
 import { type LoadOptions, loadStory, type Story } from "../../../src/story.ts";
 import { additionalContext, type HookInput, isStoryDir } from "./io.ts";
 import { type HookState, readState, writeState } from "./state.ts";
@@ -22,7 +22,10 @@ import { type HookState, readState, writeState } from "./state.ts";
 //   Directives changed since the bible was written: (only on a turn after a
 //   directive in force was switched, edited, added or removed, spec 6)
 //   Lore in play: / Directives in play: (what activation chose this turn;
-//   "(updated)" after a title when an older version is in the window)
+//   "(updated)" after a title when an older version is in the window; lore
+//   with its truth and discovery tags, Secret and History, spec 20.11)
+//   Names that keep coming up with no lore or card: ... (once per name,
+//   from the notes job's `suggest` list, spec 20.11)
 
 export type PromptContextOptions = {
   semantic?: readonly SemanticScore[] | undefined;
@@ -42,6 +45,7 @@ export function buildPromptContext(
   const config = options.config ?? defaultConfig;
   const turn = state.turn + 1;
   const deltas = directiveDeltas(story.directives, previousRecord(state, sessionId));
+  const player = playerName(story);
   const { entries, injections, report } = activate(story, {
     turn,
     prompt,
@@ -52,12 +56,15 @@ export function buildPromptContext(
     scanDepth: config.loreScanDepth,
     budget: loreBudgetChars(config.loreBudget),
     random: options.random,
+    player,
   });
+  const suggestions = newSuggestions(story, state.suggest ?? [], state.suggested ?? []);
   const context = [
     `[register: ${registerOf(prompt)}]`,
     renderStateHeader(story),
     deltas.block && `\n${deltas.block}`,
-    renderInjected(entries),
+    renderInjected(entries, player),
+    suggestions.length > 0 && `\n${suggestionLine(suggestions)}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -69,8 +76,37 @@ export function buildPromptContext(
     inForce: deltas.record.inForce,
     keyedHashes: deltas.record.keyed,
   };
+  if (suggestions.length > 0) next.suggested = [...(state.suggested ?? []), ...suggestions];
   if (sessionId !== undefined) next.sessionId = sessionId;
   return { context, state: next };
+}
+
+export function suggestionLine(names: readonly string[]): string {
+  return `Names that keep coming up with no lore or card: ${names.join(", ")}. Record them if they matter.`;
+}
+
+// Names the notes job keeps listing (spec 20.11) that Vex has not been told
+// about and that still have no lore entry (title or key) and no card. Vex may
+// have recorded one since the notes job listed it.
+export function newSuggestions(
+  story: Pick<Story, "lore" | "characters">,
+  suggest: readonly string[],
+  suggested: readonly string[],
+): string[] {
+  const seen = new Set(suggested.map(fold));
+  for (const l of story.lore) for (const name of [l.title, ...l.keys]) seen.add(fold(name));
+  for (const c of story.characters) for (const name of [c.name, c.stem]) seen.add(fold(name));
+  const fresh: string[] = [];
+  for (const name of suggest.map((n) => n.trim())) {
+    if (!name || seen.has(fold(name))) continue;
+    seen.add(fold(name));
+    fresh.push(name);
+  }
+  return fresh;
+}
+
+function fold(name: string): string {
+  return name.trim().toLowerCase();
 }
 
 // No record, or a record from another session (whose system prompt was
