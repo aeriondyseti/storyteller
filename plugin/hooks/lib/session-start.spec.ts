@@ -36,7 +36,7 @@ describe("rebuildAfterCompaction", () => {
   const config = { loreBudget: 0.1, loreScanDepth: 3 };
   const fresh = { turn: 9, injections: [pactInjection], lastLogged: undefined };
 
-  test("re-injects lore the scene state names and always-on lore scoped to it", async () => {
+  test("re-injects lore the scene state names and all always-on lore in scope", async () => {
     const dir = await copyStory(saltmereDir);
     await Bun.write(
       `${dir}/lore/the-stair.md`,
@@ -52,6 +52,10 @@ describe("rebuildAfterCompaction", () => {
       [
         "",
         "Lore in play:",
+        "",
+        "### Saltmere",
+        "",
+        "The town sank a generation ago. Half of it is still lived in.",
         "",
         "### The tide-bells",
         "",
@@ -69,13 +73,16 @@ describe("rebuildAfterCompaction", () => {
         "She lied.",
       ].join("\n"),
     );
-    // Ranked by priority (the bells have 5); rendered as the turn renders lore.
+    // Ranked by priority (Saltmere has 10, the bells 5); rendered as the turn
+    // renders lore. Story-wide always-on lore is re-sent too (spec 20.12).
     expect(state.injections.map((i) => [i.ref, i.turn])).toEqual([
+      ["lore/saltmere", 9],
       ["lore/tide-bells", 9],
       ["lore/the-stair", 9],
       ["lore/miras-oath", 9],
     ]);
     expect(state.activation?.fired.map((f) => f.why)).toEqual([
+      "always",
       'recursion via lore/miras-oath ("bells")',
       'scene "Tallow Stair"',
       "always (character:mira)",
@@ -106,8 +113,11 @@ describe("sessionStart", () => {
     );
     expect(out.hookSpecificOutput.hookEventName).toBe("SessionStart");
     expect(out.hookSpecificOutput.additionalContext).toContain("Previously, from the record:");
+    expect(out.hookSpecificOutput.additionalContext).toContain("Lore in play:\n\n### Saltmere");
     const state = await readState(dir);
-    expect(state).toMatchObject({ turn: 9, injections: [], lastLogged: "u1", sessionId: "s1" });
+    expect(state).toMatchObject({ turn: 9, lastLogged: "u1", sessionId: "s1" });
+    // The old record is cleared; only what the rebuild re-sent is in it.
+    expect(state.injections.map((i) => [i.ref, i.turn])).toEqual([["lore/saltmere", 9]]);
     // The bible was just re-read: the directive record is the current set.
     expect(Object.keys(state.inForce ?? {})).toEqual(["directives/noir", "directives/boundaries"]);
     expect(Object.keys(state.keyedHashes ?? {})).toEqual(["directives/slow-burn"]);

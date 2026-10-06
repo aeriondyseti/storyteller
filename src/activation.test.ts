@@ -106,9 +106,10 @@ describe("activate: matching", () => {
       story,
       input({ turn: 4, prompt: "I ask about the bells and the pact." }),
     );
-    expect(refs(result)).toEqual(["lore/tide-bells", "lore/the-pact"]);
+    // Saltmere is always on (priority 10) and travels with every turn.
+    expect(refs(result)).toEqual(["lore/saltmere", "lore/tide-bells", "lore/the-pact"]);
     const bells = story.lore.find((l) => l.stem === "tide-bells") as LoreEntry;
-    expect(result.injections[0]).toEqual({
+    expect(result.injections[1]).toEqual({
       ref: "lore/tide-bells",
       turn: 4,
       hash: hashOf(bells),
@@ -117,6 +118,7 @@ describe("activate: matching", () => {
     expect(result.report).toEqual({
       turn: 4,
       fired: [
+        { ref: "lore/saltmere", why: "always" },
         { ref: "lore/tide-bells", why: 'key "bells"' },
         { ref: "lore/the-pact", why: 'key "pact"' },
       ],
@@ -124,9 +126,9 @@ describe("activate: matching", () => {
     });
   });
 
-  test("never selects story-wide always-on lore, manual directives or switched-off keyed ones", () => {
+  test("never selects manual directives or switched-off keyed ones", () => {
     const story = {
-      lore: [lore("saltmere", { keys: ["saltmere"], always: true })],
+      lore: [],
       directives: [
         directive("fade", ["saltmere"], { mode: "manual", on: true }),
         directive("off", ["saltmere"], { on: false }),
@@ -225,6 +227,23 @@ describe("activate: matching", () => {
     const result = activate(story, input({ scene: lampHall }));
     expect(refs(result)).toEqual(["lore/mira-secret"]);
     expect(why(result, "lore/mira-secret")).toBe("always (character:mira)");
+  });
+
+  test("story-wide always-on lore travels with every turn, scene or none (spec 20.12)", () => {
+    const story = only(lore("saltmere", { always: true }), lore("bells", { keys: ["bells"] }));
+    const quiet = activate(story, input());
+    expect(refs(quiet)).toEqual(["lore/saltmere"]);
+    expect(why(quiet, "lore/saltmere")).toBe("always");
+    const keyed = activate(story, input({ prompt: "bells", scene: lampHall }));
+    expect(refs(keyed)).toEqual(["lore/bells", "lore/saltmere"]);
+    expect(why(keyed, "lore/saltmere")).toBe("always");
+  });
+
+  test("a key match on an always-on entry reports the key", () => {
+    const story = only(lore("saltmere", { keys: ["saltmere"], always: true }));
+    expect(why(activate(story, input({ prompt: "Saltmere" })), "lore/saltmere")).toBe(
+      'key "saltmere"',
+    );
   });
 });
 
@@ -350,6 +369,17 @@ describe("activate: still in context", () => {
     expect(why(result, "lore/a")).toBe('key "x", updated');
   });
 
+  test("story-wide always-on lore respects its cooldown and comes back after", () => {
+    const town = lore("town", { always: true, cooldown: 3 });
+    const injections = [injected(town, 5)];
+    const soon = activate(only(town), input({ turn: 7, injections }));
+    expect(refs(soon)).toEqual([]);
+    expect(cutFor(soon, "lore/town")).toBe("in context (turn 5)");
+    const later = activate(only(town), input({ turn: 8, injections }));
+    expect(refs(later)).toEqual(["lore/town"]);
+    expect(why(later, "lore/town")).toBe("always");
+  });
+
   test("does not mutate the injections it was given", () => {
     const injections = [injected(a, 1)];
     activate(only(a, b), input({ turn: 2, prompt: "x", injections }));
@@ -411,6 +441,16 @@ describe("activate: budget", () => {
     const result = activate(story, input({ turn: 2, prompt: "x", budget: 400, injections }));
     expect(refs(result)).toEqual(["lore/thin"]);
     expect(cutFor(result, "lore/wide")).toBe("context budget");
+  });
+
+  test("story-wide always-on lore ranks and fits the budget like any entry", () => {
+    const story = only(
+      lore("keyed", { keys: ["x"], priority: 9 }, "k".repeat(74)),
+      lore("town", { always: true, priority: 1 }, "t".repeat(90)),
+    );
+    const result = activate(story, input({ prompt: "x", budget: 400 }));
+    expect(refs(result)).toEqual(["lore/keyed"]);
+    expect(cutFor(result, "lore/town")).toBe("turn budget");
   });
 
   test("the share of the window becomes characters at 200k tokens, 4 characters each", () => {

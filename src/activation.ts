@@ -17,9 +17,9 @@ import type { Directive, LoreEntry, Story } from "./story.ts";
 //              time and the present characters' names.
 //   2. Match   primary keys (whole words), then `also` and `unless`; meaning
 //              matches from the index at or above the threshold; scope. An
-//              always-on entry with a character or place scope is not in the
-//              bible (which cannot follow the scene); it matches whenever its
-//              scope holds.
+//              always-on entry matches whenever its scope holds (spec 20.12:
+//              no lore is written into the bible, which cannot follow the
+//              scene or be re-sent after a compaction).
 //   3. Recurse the public text of matched entries wakes other entries' keys,
 //              up to three levels; an entry with `recurse: false` wakes none.
 //   4. Filter  an entry still in context (injected within its `cooldown`
@@ -28,9 +28,8 @@ import type { Directive, LoreEntry, Story } from "./story.ts";
 //   5. Choose  one entry per `group`, drawn by `weight`; rank (directives,
 //              then priority) and fit the two-part budget (spec 20.4).
 //
-// Always-on lore with story scope is in the bible and never a candidate, nor
-// are manual directives or keyed ones switched off. Keyed directives match by
-// key and meaning only and share the cooldown and budget.
+// Manual directives and keyed ones switched off are never candidates. Keyed
+// directives match by key and meaning only and share the cooldown and budget.
 
 export type Injection = { ref: string; turn: number; hash: string; chars: number };
 
@@ -183,7 +182,7 @@ export function activate(
 
   const candidates = [
     ...story.directives.filter((d) => d.mode === "keyed" && d.on).map(directiveCandidate),
-    ...story.lore.filter((l) => !l.always || l.scope.kind !== "story").map(loreCandidate),
+    ...story.lore.map(loreCandidate),
   ];
 
   // Steps 1 and 2: direct matches.
@@ -211,7 +210,9 @@ export function activate(
         : `scene "${sceneKey}"`
       : score > 0
         ? `semantic ${score.toFixed(2)}`
-        : `always (${formatScope(c.scope)})`;
+        : c.scope.kind === "story"
+          ? "always"
+          : `always (${formatScope(c.scope)})`;
     matched.set(c.ref, { candidate: c, why, depth: 0, byKey, score, updated: false });
   }
 

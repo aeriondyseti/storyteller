@@ -44,7 +44,6 @@ export function renderBible(story: Story, options: RenderOptions = {}): string {
       : "",
     renderPersona(story),
     renderCast(story),
-    renderAlwaysLore(story),
     renderAlwaysDirectives(story),
     renderIndex(story),
     renderClosedScenes(story, options.summaryBudget ?? defaultSummaryBudget),
@@ -146,18 +145,6 @@ function renderCard(c: Character): string {
   return `### ${c.name} (${c.stem})\n\n${meta.join("\n")}\n\n${embed(c.body)}`.trim();
 }
 
-// Story-scoped always-on lore only: the bible is written once a session, so an
-// entry scoped to a character or place travels with the turn instead, while
-// its scope holds (src/activation.ts). Public text only, never the Secret.
-function renderAlwaysLore(story: Story): string {
-  const always = story.lore.filter(inBible);
-  if (always.length === 0) return "";
-  const entries = always.map(
-    (l) => `### ${l.title}\n\nFile: ${l.path} (${l.source})\n\n${embed(l.body)}`,
-  );
-  return `## Lore always in play\n\n${entries.join("\n\n")}`;
-}
-
 function renderAlwaysDirectives(story: Story): string {
   // Always-on directives and manual ones switched on are in force in full;
   // keyed ones arrive with the turn when their keys match.
@@ -170,7 +157,9 @@ function renderAlwaysDirectives(story: Story): string {
 }
 
 function renderIndex(story: Story): string {
-  const lore = story.lore.filter((l) => !inBible(l));
+  // Every lore entry is indexed; none is inlined, always-on ones included:
+  // they travel with the turn (spec 20.12).
+  const lore = story.lore;
   const directives = story.directives.filter((d) => d.mode === "keyed" || !d.on);
   if (lore.length === 0 && directives.length === 0) return "";
   const parts = [
@@ -184,13 +173,13 @@ function renderIndex(story: Story): string {
   return parts.join("\n");
 }
 
-function inBible(l: LoreEntry): boolean {
-  return l.always && l.scope.kind === "story";
-}
-
 function loreIndexLine(l: LoreEntry): string {
   const scope =
-    l.scope.kind === "story" ? "" : ` · ${formatScope(l.scope)}${l.always ? ", always" : ""}`;
+    l.scope.kind === "story"
+      ? l.always
+        ? " · always"
+        : ""
+      : ` · ${formatScope(l.scope)}${l.always ? ", always" : ""}`;
   return `- ${l.title}: keys ${l.keys.join(", ") || "(none)"}${scope} · ${l.path}`;
 }
 
