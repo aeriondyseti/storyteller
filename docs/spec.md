@@ -1255,3 +1255,14 @@ Where the text above left room, slice 1 decided this. Code: `src/lore.ts`
   and still has no entry or card, once, as `Names that keep coming up with no
   lore or card: A, B. Record them if they matter.`, then adds them to
   `suggested`. Names compare case-insensitively.
+
+### 20.12 Always-on lore travels with the turn (2026-10-06)
+
+Decided by the player after slice 2: **no lore is written into the bible.**
+Every `always: true` entry, story scope included, goes through the per-turn
+pipeline as slice 1 already did for character and place scope: it fires as
+`always` (story scope) or `always (<scope>)`, rendered exactly like any other
+injection (Secret, History, tags), under the same cooldown, ranking and budget,
+and the compaction rebuild re-injects it. The bible keeps only the on-demand
+index, which lists always-on entries with `always` after their title. This
+replaces the "Lore always in play" section of 20.10.
