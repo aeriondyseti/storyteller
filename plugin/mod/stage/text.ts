@@ -24,6 +24,8 @@ const phrases: Record<string, string> = {
   upsert_character: "writes a card",
   update_sheet: "writes a card",
   upsert_lore: "writes into the lore",
+  reveal_lore: "notes what you now know",
+  append_lore_history: "adds to the chronicle",
   upsert_directive: "amends the rules",
   set_directive: "amends the rules",
   update_story: "amends the story",
