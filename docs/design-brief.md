@@ -47,7 +47,7 @@ also step out on its own when something needs a decision from the player.
 Direct one-character chat (the SillyTavern default) is not a goal. A Storyteller
 playing a single NPC in a two-person scene covers that case well enough.
 
-### Vocabulary, carried over from the previous project
+### Vocabulary
 
 - **Story**: a self-contained narrative with a consistent setting. A directory.
 - **Scene**: a coherent arc or beat within a story. A file with state and a
@@ -222,7 +222,7 @@ Decided 2026-10-05. The Agent SDK is Claude Code headless: the same engine,
 tools, hooks, MCP client, sessions, and compaction, streamed as JSON to a
 front end you write. So a custom Ink TUI on the SDK buys layout freedom but
 not control over the conversation; editing a past assistant reply needs an
-own harness on the raw Messages API, which is the archived project.
+own harness on the raw Messages API.
 
 Modding Claude Code gives us the whole terminal client (editor, streaming
 markdown, scrollback, images, panes, dialogs, keybindings, Remote Control and
@@ -246,8 +246,8 @@ branding, or the mods API changing shape between releases.
 
 Decided 2026-10-05: multiplayer is removed from the product, not deferred.
 Each player runs their own Claude Code with their own login, and a story
-directory belongs to one person. The previous project's "ten friends on a
-homelab" target and its Player table do not carry over. Consequences: no
+directory belongs to one person. Multi-user accounts and presence
+are not part of the design. Consequences: no
 accounts, no presence, no shared server; the world MCP server is a per-session
 stdio process with no concurrency story to tell.
 
@@ -257,8 +257,8 @@ stdio process with no concurrency story to tell.
   moving parts, but the whole product then rests on an early-access API, and
   the world logic could not be tested without Claude Code. Rejected for the
   core; mods stay the polish layer.
-- **A separate TUI app** that embeds the Claude Agent SDK. That is the
-  previous direction, archived at tag `archive/web-harness`. Rejected: we
+- **A separate TUI app** that embeds the Claude Agent SDK, the obvious
+  other way to build this. Rejected: we
   would rebuild what Claude Code already is.
 - **SQLite for story state.** Needed only for semantic search and
   concurrency, neither of which v0.1 has. Files first; add a search index

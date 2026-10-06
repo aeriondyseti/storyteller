@@ -6,6 +6,7 @@ character but the player's, and keeps the record on disk. Read these first:
 
 - `docs/spec.md`: what the system does and how Vex acts. The authority.
 - `docs/design-brief.md`: why Claude Code and not a custom TUI, decisions.
+- `docs/handoff.md`: where things stand and how work is done; start here in a new session.
 
 ## Layout
 

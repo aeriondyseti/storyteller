@@ -646,7 +646,7 @@ library overrides.
 
 ## 17. Open questions
 
-- Resolved (2026-10-05): the embedding model is the archived project's,
+- Resolved (2026-10-05): the embedding model is
   `Xenova/all-MiniLM-L6-v2` (384 dimensions, int8 ONNX, ~23 MB) through
   `@huggingface/transformers` 4.x, cached in `~/.claude-roleplay/models/`.
   Confirmed under Bun 1.3.14 on Windows with no native build step
