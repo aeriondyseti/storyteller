@@ -50,11 +50,10 @@ describe("renderBible", () => {
       "### Edda (edda)",
       "### Mira Vane (mira)",
       `${fixtureLibrary}/characters/mira.md (library)`,
-      "## Lore always in play",
-      "The town sank",
       "## Directives in force",
       "Short sentences. Rain.",
       "## On demand",
+      `- Saltmere: keys (none) · always · ${saltmereDir}/lore/saltmere.md`,
       `- The tide-bells: keys bell, bells, tide-bell · ${saltmereDir}/lore/tide-bells.md`,
       "- Fade to black (manual, off)",
       "- Slow burn (keyed, on): keys kiss, romance",
@@ -73,14 +72,17 @@ describe("renderBible", () => {
     expect(bible).not.toContain("\\");
     expect(bible).not.toContain("Library version: sealed in blood");
     expect(bible).not.toContain("Not referenced by any story");
-    // Keyed lore and non-always directives are indexed, not inlined.
+    // No lore is inlined, always-on included (spec 20.12); non-always
+    // directives are indexed, not inlined.
+    expect(bible).not.toContain("Lore always in play");
+    expect(bible).not.toContain("The town sank");
     expect(bible).not.toContain("Thirteen bells");
     expect(bible).not.toContain("Cut away from intimate scenes");
     // Corwin is the persona, not cast.
     expect(bible.match(/### Corwin Hale/g)).toHaveLength(1);
   });
 
-  test("lore: public text only; scoped always-on entries are indexed with their scope", async () => {
+  test("lore: none inlined; always-on entries are indexed as always, with any scope", async () => {
     const dir = await copyStory(saltmereDir);
     await Bun.write(
       `${dir}/lore/saltmere.md`,
@@ -91,8 +93,9 @@ describe("renderBible", () => {
       "---\ntitle: Mira's oath\nkeys: [oath]\nalways: true\nscope: character:mira\n---\n\nShe swore.\n",
     );
     const bible = renderBible(await load(dir));
-    expect(bible).toContain("## Lore always in play\n\n### Saltmere");
-    expect(bible).toContain("The town sank.");
+    expect(bible).not.toContain("Lore always in play");
+    expect(bible).not.toContain("The town sank.");
+    expect(bible).toContain(`- Saltmere: keys (none) · always · ${dir}/lore/saltmere.md`);
     expect(bible).not.toContain("sunk on purpose");
     expect(bible).not.toContain("Corwin came back");
     expect(bible).not.toContain("She swore.");

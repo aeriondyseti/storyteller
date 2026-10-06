@@ -39,12 +39,17 @@ describe("buildPromptContext", () => {
     expect(lines[1]).toBe(
       "[scene 3: The Tallow Stair · The Tallow Stair, Saltmere · an hour before dawn · present: Mira Vane, Edda]",
     );
+    // Saltmere is always on: it travels with the turn, not in the bible.
     expect(context).toContain(
-      "Lore in play:\n\n### The tide-bells\n\nThirteen bells hang in the drowned belfry. They ring before deaths.",
+      "Lore in play:\n\n### Saltmere\n\nThe town sank a generation ago. Half of it is still lived in.\n\n### The tide-bells\n\nThirteen bells hang in the drowned belfry. They ring before deaths.",
     );
     expect(context).not.toContain("Directives in play:");
     expect(state).toMatchObject({ turn: 1, lastLogged: undefined });
-    expect(state.injections.map((i) => [i.ref, i.turn])).toEqual([["lore/tide-bells", 1]]);
+    expect(state.injections.map((i) => [i.ref, i.turn])).toEqual([
+      ["lore/saltmere", 1],
+      ["lore/tide-bells", 1],
+    ]);
+    expect(state.activation?.fired[0]).toEqual({ ref: "lore/saltmere", why: "always" });
   });
 
   test("matches keys in the recent turns as well as the prompt", async () => {
@@ -64,6 +69,7 @@ describe("buildPromptContext", () => {
     expect(result.state).toMatchObject({ turn: 3, lastLogged: "x" });
     expect(result.state.injections).toEqual(first.state.injections);
     expect(result.state.activation?.cut).toEqual([
+      { ref: "lore/saltmere", reason: "in context (turn 2)" },
       { ref: "lore/tide-bells", reason: "in context (turn 2)" },
     ]);
   });
@@ -95,6 +101,10 @@ describe("buildPromptContext", () => {
         "",
         "Lore in play:",
         "",
+        "### Saltmere",
+        "",
+        "The town sank a generation ago. Half of it is still lived in.",
+        "",
         "### The tide-bells",
         "",
         "Thirteen bells hang in the drowned belfry. They ring before deaths.",
@@ -118,6 +128,7 @@ describe("buildPromptContext", () => {
     expect(next.activation).toEqual({
       turn: 5,
       fired: [
+        { ref: "lore/saltmere", why: "always" },
         { ref: "lore/tide-bells", why: 'key "bells"' },
         { ref: "lore/the-pact", why: 'key "pact", updated' },
         { ref: "lore/the-stair", why: 'scene "Tallow Stair"' },
@@ -127,6 +138,7 @@ describe("buildPromptContext", () => {
     });
     expect(next.injections.map((i) => [i.ref, i.turn])).toEqual([
       ["lore/the-pact", 3],
+      ["lore/saltmere", 5],
       ["lore/tide-bells", 5],
       ["lore/the-pact", 5],
       ["lore/the-stair", 5],
@@ -161,7 +173,11 @@ describe("userPromptSubmit", () => {
     const state = await readState(dir);
     expect(state).toMatchObject({ turn: 1, lastLogged: undefined });
     // The pact's text names a bell, which wakes the tide-bells.
-    expect(state.injections.map((i) => i.ref)).toEqual(["lore/tide-bells", "lore/the-pact"]);
+    expect(state.injections.map((i) => i.ref)).toEqual([
+      "lore/saltmere",
+      "lore/tide-bells",
+      "lore/the-pact",
+    ]);
   });
 
   test("activates by meaning when the story has an index", async () => {
