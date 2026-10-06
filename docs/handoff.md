@@ -49,20 +49,23 @@ status line), skills and commands, plus a small launcher.
 - **Lorebooks slice 1** (spec §20): full entry schema, library books,
   character and place scope, the activation pipeline with recursion, weighted
   groups, chance, context-aware cooldown and a two-part budget.
+- **Lorebooks slice 2** (§20.11, gaps in §16): injected lore carries Secret,
+  History and heading tags (`(updated)`, `(rumour)`/`(false)`, `(unknown to
+  …)`); `reveal_lore`, `append_lore_history` (library entries are copied into
+  the story first); the notes job lists unrecorded names, the hook passes
+  each recurring one to Vex once.
 
 ## Next
 
-1. **Lorebooks slice 2** (§20.9): `known`, `truth`, Secret and History
-   sections in use, `reveal_lore`, `append_lore_history`, rumour and correction
-   text, suggestions to Vex from the notes job.
-2. **Lorebooks slice 3**: `/storyteller:codex` pane, glossary links, a
+1. **Lorebooks slice 3**: `/storyteller:codex` pane, glossary links, a
    `lore.pct` status source.
-3. **`/storyteller:pane <name>`**: bring a pane forward by name (top of §18).
-4. The rest of §18 and the differentiators in `docs/prior-art.md`; the player
+2. **`/storyteller:pane <name>`**: bring a pane forward by name (top of §18).
+3. The rest of §18 and the differentiators in `docs/prior-art.md`; the player
    has picked none of those yet.
 
 The player's own stories have not been migrated to the new lore fields (they
-load fine with defaults). The command, if they ask:
+load fine with defaults, but `known` defaults to false, so every entry reads
+`(unknown to …)` until migrated or revealed). The command, if they ask:
 `bun scripts/migrate-lore.ts ~/.storyteller/stories/* ~/.storyteller/library`.
 
 ## How work is done here
