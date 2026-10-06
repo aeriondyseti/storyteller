@@ -152,9 +152,10 @@ function world(
     return { value: answer };
   });
   on("process.run", (_$, e) => {
-    // The stage's scene read (plugin/scene.ts) runs after every turn too; it
-    // prints nothing here, and only the notes job's runs are recorded.
-    if (!e.argv[1]?.endsWith("/scene.ts")) w.runs.push([...e.argv]);
+    // The stage's scene and codex reads (plugin/scene.ts, plugin/codex.ts) run
+    // after every turn too; they print nothing here, and only the notes job's
+    // runs are recorded.
+    if (!/\/(scene|codex)\.ts$/.test(e.argv[1] ?? "")) w.runs.push([...e.argv]);
     return {
       value: {
         exitCode: 0,

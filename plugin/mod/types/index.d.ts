@@ -152,6 +152,14 @@ export type DirectivesPane = {
   notice: { text: string; isError: boolean } | null;
 };
 
+// The codex pane's own state (spec 20.13).
+
+// Which entry or character the pane shows (null: the index), and the search.
+export type CodexPane = {
+  entry: string | null;
+  search: string;
+};
+
 declare module "claude-code" {
   interface PluginState {
     storyteller: {
@@ -172,6 +180,11 @@ declare module "claude-code" {
       // Ids of widget panes the person closed by hand: not reopened while
       // their widgets stay, so a closed pane stays closed.
       closedPanes: string[];
+      // The codex as plugin/codex.ts last printed it: the pane and the
+      // glossary links draw from it; null outside a story.
+      codex: CodexSnapshot | null;
+      // The codex pane: the entry it shows, or the index, and the search.
+      codexPane: CodexPane;
     };
   }
 }

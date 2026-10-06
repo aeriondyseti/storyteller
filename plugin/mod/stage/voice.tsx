@@ -1,6 +1,8 @@
 import type { EngineInterface, Register, RenderInput } from "claude-code";
-import { atom, read } from "claude-code";
-import type { StageSnapshot } from "../types";
+import { atom, read, update } from "claude-code";
+import type { CodexSnapshot, StageSnapshot } from "../types";
+import { CODEX_PANE, paneAt } from "./codex-index.ts";
+import { codexIdOf, type Glossary, glossaryOf, linkNames } from "./glossary.ts";
 import {
   type Block,
   colorFor,
@@ -23,6 +25,12 @@ const FALLBACK_NAME = "The Storyteller";
 // crosses an import in a hooks module.
 const stage = atom({ plugin: "storyteller", key: "stage" } as const, null);
 const voicing = atom({ plugin: "storyteller", key: "voicing" } as const, null);
+// Written by codex.tsx: the glossary the prose links draw from.
+const codex = atom({ plugin: "storyteller", key: "codex" } as const, null);
+const codexPane = atom({ plugin: "storyteller", key: "codexPane" } as const, {
+  entry: null,
+  search: "",
+});
 
 export const registerVoice: Register = (on) => {
   // The quiet line. A ToolUse row carries no ctrl+o flag (only ToolGroup
@@ -73,22 +81,27 @@ export const registerVoice: Register = (on) => {
   on("ui.render", { component: "AssistantMessage" }, async ($, e, next) => {
     const snapshot = await read($, stage);
     if (!snapshot || e.props.text.length > 9_000) return next(e);
-    return drawReply($, e, snapshot);
+    return drawReply($, e, snapshot, await read($, codex));
   });
 };
 
 // One text block of a reply: the Storyteller's name in its colour at the
 // start of a reply; asides in (( )) dim; a lone italic phrase as a
 // scene-setting rule; quoted lines tinted for the one character a paragraph
-// names; everything else drawn as the engine draws markdown.
+// names; everything else drawn as the engine draws markdown, with the first
+// mention of each codex name a link to its entry (spec 20.13).
 function drawReply(
   $: EngineInterface,
   e: RenderInput<"AssistantMessage">,
   snapshot: StageSnapshot,
+  data: CodexSnapshot | null,
 ) {
   const { Box, Text } = $.ui.resolve(e);
   const blocks = replyBlocks(e.props.text, snapshot.speakers);
   const columns = e.viewport?.columns ?? 80;
+  // The engine names no reply a block belongs to, so "first mention per
+  // reply" is per text block of it: one AssistantMessage.
+  const links: Links = { glossary: data ? glossaryOf(data.names) : null, linked: new Set() };
   return (
     <Box flexDirection="column">
       {e.props.isFirstOfReply ? (
@@ -97,22 +110,46 @@ function drawReply(
         </Text>
       ) : null}
       <Box flexDirection="column" gap={1}>
-        {blocks.map((block) => drawBlock($, e, block, columns))}
+        {blocks.map((block, i) => drawBlock($, e, block, columns, links, i))}
       </Box>
     </Box>
   );
 }
+
+type Links = { glossary: Glossary | null; linked: Set<string> };
+
+// The engine takes at most 256 pressable links on one Markdown.
+const MAX_LINKS = 256;
 
 function drawBlock(
   $: EngineInterface,
   e: RenderInput<"AssistantMessage">,
   block: Block,
   columns: number,
+  links: Links,
+  index: number,
 ) {
   const { Text, Markdown } = $.ui.resolve(e);
   switch (block.kind) {
-    case "prose":
-      return <Markdown text={block.text} />;
+    case "prose": {
+      if (!links.glossary) return <Markdown text={block.text} />;
+      const linked = linkNames(block.text, links.glossary, links.linked);
+      // Markdown is bounded at 10000 characters; the links must not push past it.
+      if (linked.hrefs.length === 0 || linked.text.length > 9_900) {
+        return <Markdown text={block.text} />;
+      }
+      return (
+        <Markdown
+          key={`prose:${index}`}
+          text={linked.text}
+          pressableLinks={linked.hrefs.slice(0, MAX_LINKS)}
+          onLinkPress={(link) => {
+            const id = codexIdOf(link.href);
+            if (id) void openCodex($, id);
+          }}
+        />
+      );
+    }
     case "ooc":
       return <Markdown text={block.text} dimColor />;
     case "setting": {
@@ -144,4 +181,15 @@ function drawBlock(
       );
     }
   }
+}
+
+// Opens the codex pane at a codex id (stage/codex.tsx draws it), from the
+// person's press, so it seats at any width. Spelled here, not imported: the
+// engine follows `$` into no function of another file.
+async function openCodex($: EngineInterface, id: string): Promise<void> {
+  const data = await read($, codex);
+  await update($, codexPane, () => paneAt(data, id));
+  await $.ui.open(CODEX_PANE);
+  // A pane already open keeps its scroll: bring the entry's top into view.
+  void $.ui.scroll({ to: { key: "back" }, in: CODEX_PANE.id, block: "start" }).catch(() => {});
 }

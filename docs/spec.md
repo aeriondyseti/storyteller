@@ -686,6 +686,30 @@ library overrides.
     `loreBudget` mid-session can leave more lore in context than fits); it
     is absent when `loreBudget` is 0. It reads `loreBudget` the way the hooks
     do (`RP_CONFIG`, else settings.json). It is not in the default layout.
+- **Lorebooks slice 3, the mod's side, where 20.13 left room** (2026-10-06):
+  - *First mention per reply* is per text block of a reply (one
+    `AssistantMessage`): the engine names no reply a block belongs to.
+    Within it, only narration prose counts; a name first said in dialogue
+    still links at its first mention in prose.
+  - *Matching*: case-insensitive, so the title `The Tallow Stair` links
+    `the Tallow Stair` whole. A name broken over a line in the reply still
+    matches; in the scene pane, where Now is already wrapped to lines, one
+    broken over two lines does not. Where, When and Mood count as part of Now.
+  - *Present* buttons carry the character's name only when the codex lists
+    `character/<stem>` (met, not the persona); they draw plain, so the name
+    loses its colour.
+  - *The codex data* is read at session start, after every turn (answered
+    or aborted), and when `/storyteller:codex` runs; a press on a link opens
+    the pane on the data read after the last turn.
+  - *`/storyteller:codex <id>`* opens the pane at that entry
+    (`lore/<stem>`, `character/<stem>`); an unknown id shows the index.
+  - *Search* matches titles and keys of entries and the names of characters;
+    Enter in the field opens the first match. Back returns to the index with
+    the focus on the title left from.
+  - *Mod constraint*: a link press, a name button and the command each open
+    the pane themselves (`codexPane` then `$.ui.open`), because the engine
+    follows `$` into no function of another file, and in the test kit a
+    plugin's own `$.command.run` did not reach its own `command.run` hook.
 
 ## 16a. Decisions (2026-10-05, second round)
 

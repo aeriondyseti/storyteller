@@ -53,15 +53,25 @@ status line), skills and commands, plus a small launcher.
   History and heading tags (`(updated)`, `(rumour)`/`(false)`, `(unknown to
   …)`); `reveal_lore`, `append_lore_history` (library entries are copied into
   the story first); the notes job lists unrecorded names, the hook passes
-  each recurring one to Vex once.
+  each recurring one to Vex once. Always-on lore travels with the turn; the
+  bible holds no lore text (§20.12).
+- **Lorebooks slice 3** (§20.13): `/storyteller:codex` pane (index with
+  search, then one entry; known entries and met characters only), glossary
+  links in narration prose (`https://codex.invalid/<id>`, mouse in
+  fullscreen) and scene-pane name buttons, `lore.budget_percent` status
+  source. Status sources are named in full words (`session.context_percent`,
+  `usage.five_hour_percent`, `usage.weekly_percent`).
 
 ## Next
 
-1. **Lorebooks slice 3**: `/storyteller:codex` pane, glossary links, a
-   `lore.pct` status source.
+1. **Live check of slice 3**: link presses, pane keyboard, scene-pane button
+   alignment (the test kit cannot cover these).
 2. **`/storyteller:pane <name>`**: bring a pane forward by name (top of §18).
 3. The rest of §18 and the differentiators in `docs/prior-art.md`; the player
    has picked none of those yet.
+
+Code names are spelled out in full, no abbreviations (the player's rule);
+compact display labels are fine.
 
 The player's own stories have not been migrated to the new lore fields (they
 load fine with defaults, but `known` defaults to false, so every entry reads
