@@ -50,9 +50,9 @@ export const loreDefaults = {
   truth: "fact",
 } as const;
 
-// The public text goes to the model with the turn; the Secret and History
-// sections are kept apart so nothing outside the loader can leak them before
-// the discovery slice decides who sees what.
+// The Secret and History sections are kept apart from the public text: Vex
+// sees them with an injected entry (renderLoreEntry), but the bible, recursion,
+// the embedding index and search_lore read the public text only.
 export type LoreBody = { body: string; secret: string | undefined; history: string | undefined };
 
 const privateSections = ["secret", "history"];
@@ -148,6 +148,8 @@ function parseKnown(value: unknown): LoreKnown {
 
 function parseTruth(value: unknown): LoreTruth {
   if (value === undefined) return loreDefaults.truth;
+  // YAML reads a bare `truth: false` as the boolean.
+  if (value === false) return "false";
   const truth = loreTruths.find((t) => t === value);
   if (!truth) throw new StoryError(`truth should be one of ${loreTruths.join(", ")}`);
   return truth;
@@ -198,4 +200,106 @@ function strList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
   const one = str(value);
   return one ? [one] : [];
+}
+
+// What a lore entry carries beyond its title and public text when it travels
+// with the turn (spec 20.11). Directives have none of it.
+export type LoreDetails = {
+  secret: string | undefined;
+  history: string | undefined;
+  truth: LoreTruth;
+  known: LoreKnown;
+};
+
+const truthTags: Record<LoreTruth, string> = { fact: "", rumor: "(rumour)", false: "(false)" };
+
+function truthNote(truth: LoreTruth, hasSecret: boolean): string {
+  if (truth === "rumor") return "People say this; it may not be so.";
+  if (truth === "false") {
+    return `Characters believe this; it is not true.${hasSecret ? " The truth is in Secret." : ""}`;
+  }
+  return "";
+}
+
+// One injected entry as Vex reads it: heading tags in the fixed order
+// (updated, truth, unknown), the truth note, the public text, then Secret and
+// History. `player` is the player character's display name.
+export function renderLoreEntry(
+  entry: { title: string; body: string; updated: boolean } & LoreDetails,
+  player: string,
+): string {
+  const unknownTo = `(unknown to ${player})`;
+  const tags = [
+    entry.updated ? "(updated)" : "",
+    truthTags[entry.truth],
+    entry.known === false ? unknownTo : "",
+  ].filter(Boolean);
+  const secret = entry.secret?.trim();
+  const history = entry.history?.trim();
+  return [
+    `### ${[entry.title, ...tags].join(" ")}`,
+    truthNote(entry.truth, !!secret),
+    entry.body.trim(),
+    secret ? `${entry.known === "secret" ? "Secret:" : `Secret ${unknownTo}:`}\n${secret}` : "",
+    history ? `History:\n${history}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+// Text-level edits for reveal_lore and append_lore_history. A file changes
+// only where the edit lands; every other byte (frontmatter layout, one-line
+// lists, comments, line endings) stays as the player or the migration wrote it.
+
+const frontmatterBlock = /^---(\r?\n)([\s\S]*?)\r?\n?---[ \t]*(?:\r?\n|$)/;
+
+export function setKnownInText(text: string, known: LoreKnown): string {
+  const value = `known: ${String(known)}`;
+  const match = frontmatterBlock.exec(text);
+  if (!match) {
+    const eol = text.includes("\r\n") ? "\r\n" : "\n";
+    return `---${eol}${value}${eol}---${eol}${eol}${text}`;
+  }
+  const eol = match[1] ?? "\n";
+  const yaml = match[2] ?? "";
+  const start = 3 + eol.length;
+  const line = /^known:[^\r\n]*$/m.exec(yaml);
+  if (line) {
+    const at = start + line.index;
+    return text.slice(0, at) + value + text.slice(at + line[0].length);
+  }
+  if (yaml.trim() === "") {
+    return `${text.slice(0, start)}${value}${eol}${text.slice(start + yaml.length).replace(/^\r?\n/, "")}`;
+  }
+  const at = start + yaml.length;
+  return text.slice(0, at) + eol + value + text.slice(at);
+}
+
+// Adds `line` as the last line of the History section, creating the section
+// at the end of the file when there is none.
+export function appendHistoryInText(text: string, line: string): string {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  const bodyStart = frontmatterLineCount(text);
+  const heading = lines.findIndex(
+    (l, i) => i >= bodyStart && /^##\s/.test(l) && l.slice(2).trim().toLowerCase() === "history",
+  );
+  if (heading === -1) {
+    const trimmed = text.replace(/\s+$/, "");
+    return `${trimmed}${trimmed ? eol + eol : ""}## History${eol}${eol}${line}${eol}`;
+  }
+  const next = lines.findIndex((l, i) => i > heading && /^##\s/.test(l));
+  const end = next === -1 ? lines.length : next;
+  let last = end - 1;
+  while (last > heading && (lines[last] ?? "").trim() === "") last--;
+  const insert = last === heading ? ["", line] : [line];
+  const tail = lines.slice(last + 1);
+  // A section that ran to the end of a file with no final newline gets one.
+  if (tail.length === 0) tail.push("");
+  return [...lines.slice(0, last + 1), ...insert, ...tail].join(eol);
+}
+
+function frontmatterLineCount(text: string): number {
+  const match = frontmatterBlock.exec(text);
+  return match ? match[0].split(/\r?\n/).length - 1 : 0;
 }

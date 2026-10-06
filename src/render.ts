@@ -1,5 +1,5 @@
-import type { Activated } from "./activation.ts";
-import { formatScope } from "./lore.ts";
+import { type Activated, defaultPlayer } from "./activation.ts";
+import { formatScope, renderLoreEntry } from "./lore.ts";
 import {
   type Character,
   castOf,
@@ -194,15 +194,25 @@ function loreIndexLine(l: LoreEntry): string {
   return `- ${l.title}: keys ${l.keys.join(", ") || "(none)"}${scope} · ${l.path}`;
 }
 
-// The turn's injected entries (spec 20.2): lore, then directives, each as
-// "### Title", marked "(updated)" when an earlier version is in the window.
-export function renderInjected(entries: readonly Activated[]): string {
+// The player character's display name, as injected lore names it: the card's
+// name, the stem when there is no card yet, "the player" when none is chosen.
+export function playerName(story: Story): string {
+  const stem = personaOf(story);
+  if (!stem) return defaultPlayer;
+  return findCharacter(story, stem)?.name ?? stem;
+}
+
+// The turn's injected entries (spec 20.2, 20.11): lore, then directives, each
+// as "### Title", marked "(updated)" when an earlier version is in the window.
+// Lore also carries its truth and discovery tags, Secret and History.
+export function renderInjected(entries: readonly Activated[], player = defaultPlayer): string {
+  const render = (e: Activated) =>
+    e.details
+      ? renderLoreEntry({ ...e, ...e.details }, player)
+      : `### ${e.title}${e.updated ? " (updated)" : ""}\n\n${e.body.trim()}`;
   const block = (heading: string, list: readonly Activated[]) => {
     if (list.length === 0) return "";
-    const bodies = list.map(
-      (e) => `### ${e.title}${e.updated ? " (updated)" : ""}\n\n${e.body.trim()}`,
-    );
-    return `\n${heading}\n\n${bodies.join("\n\n")}`;
+    return `\n${heading}\n\n${list.map(render).join("\n\n")}`;
   };
   return [
     block(

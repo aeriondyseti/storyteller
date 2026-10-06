@@ -10,8 +10,13 @@ import {
   saltmereDir,
   tempDir,
 } from "../../../src/testing/fixtures.ts";
-import { type HookState, readState } from "./state.ts";
-import { buildPromptContext, semanticQueries, userPromptSubmit } from "./user-prompt-submit.ts";
+import { type HookState, readState, writeState } from "./state.ts";
+import {
+  buildPromptContext,
+  newSuggestions,
+  semanticQueries,
+  userPromptSubmit,
+} from "./user-prompt-submit.ts";
 
 const fresh: HookState = { turn: 0, injections: [], lastLogged: undefined };
 const load = (dir: string) => loadStory(dir, { libraryRoot: fixtureLibrary });
@@ -63,7 +68,7 @@ describe("buildPromptContext", () => {
     ]);
   });
 
-  test("a sample turn: key, scene state, recursion and an updated entry; no Secret", async () => {
+  test("a sample turn: key, scene state, recursion, an updated entry, discovery tags", async () => {
     const dir = await copyStory(saltmereDir);
     await Bun.write(
       `${dir}/lore/the-stair.md`,
@@ -98,13 +103,16 @@ describe("buildPromptContext", () => {
         "",
         "In Saltmere, the pact was sealed with a bell, not blood.",
         "",
-        "### The Tallow Stair",
+        "### The Tallow Stair (unknown to Corwin Hale)",
         "",
         "Ninety-one greasy steps from the fish docks.",
         "",
-        "### The drowned belfry",
+        "### The drowned belfry (unknown to Corwin Hale)",
         "",
         "Half under water at high tide; boats tie up to the louvres.",
+        "",
+        "Secret (unknown to Corwin Hale):",
+        "The thirteenth bell was never cast.",
       ].join("\n"),
     );
     expect(next.activation).toEqual({
@@ -188,6 +196,69 @@ describe("userPromptSubmit", () => {
 
   test("stays silent outside a story folder", async () => {
     expect(await userPromptSubmit({ cwd: await tempDir(), prompt: "hi" })).toBeUndefined();
+  });
+});
+
+describe("lore suggestions (spec 20.11)", () => {
+  const options = { libraryRoot: fixtureLibrary };
+  const line =
+    "Names that keep coming up with no lore or card: Old Tom, Gull Rock. Record them if they matter.";
+
+  test("newSuggestions: not yet suggested, no entry title or key, no card; any case", async () => {
+    const story = await load(saltmereDir);
+    const suggest = [
+      "Old Tom",
+      "mira vane",
+      "SALTMERE",
+      "Tide-Bell",
+      "Gull Rock",
+      "old tom",
+      "Ada",
+    ];
+    expect(newSuggestions(story, suggest, ["ada"])).toEqual(["Old Tom", "Gull Rock"]);
+    expect(newSuggestions(story, [], [])).toEqual([]);
+  });
+
+  test("delivered once, after the lore, and remembered in suggested", async () => {
+    const story = await load(saltmereDir);
+    const state: HookState = { ...fresh, suggest: ["Old Tom", "Gull Rock"], suggested: ["Ada"] };
+    const first = buildPromptContext(story, "I wait.", [], state);
+    expect(first.context.endsWith(`\n\n${line}`)).toBe(true);
+    expect(first.state.suggested).toEqual(["Ada", "Old Tom", "Gull Rock"]);
+    const second = buildPromptContext(story, "I wait.", [], first.state);
+    expect(second.context).not.toContain("Names that keep coming up");
+    expect(second.state.suggested).toEqual(["Ada", "Old Tom", "Gull Rock"]);
+  });
+
+  test("the hook reads suggest from state.json and never writes it back", async () => {
+    const dir = await copyStory(saltmereDir);
+    await Bun.write(
+      `${dir}/.rp/state.json`,
+      JSON.stringify({
+        suggest: ["Old Tom", "Gull Rock"],
+        nameTally: { "Old Tom": 2 },
+        notesTurn: 4,
+      }),
+    );
+    const out = await userPromptSubmit({ cwd: dir, prompt: "I wait." }, options);
+    expect(JSON.parse(out ?? "{}").hookSpecificOutput.additionalContext).toContain(line);
+    const saved = JSON.parse(await Bun.file(`${dir}/.rp/state.json`).text());
+    expect(saved).toMatchObject({
+      suggest: ["Old Tom", "Gull Rock"],
+      suggested: ["Old Tom", "Gull Rock"],
+      nameTally: { "Old Tom": 2 },
+      notesTurn: 4,
+    });
+    const again = await userPromptSubmit({ cwd: dir, prompt: "I wait." }, options);
+    expect(again).not.toContain("Names that keep coming up");
+  });
+
+  test("writeState keeps the mod's newer suggest over the copy it read", async () => {
+    const dir = await tempDir();
+    const state = { ...(await readState(dir)), suggest: ["Stale"] };
+    await Bun.write(`${dir}/.rp/state.json`, JSON.stringify({ suggest: ["Fresh"] }));
+    await writeState(dir, state);
+    expect((await readState(dir)).suggest).toEqual(["Fresh"]);
   });
 });
 

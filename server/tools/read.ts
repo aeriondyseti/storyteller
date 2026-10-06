@@ -183,9 +183,12 @@ function loreBlock(l: LoreEntry): string {
   const flags = [l.always ? "always in play" : "", l.source === "library" ? "library" : ""]
     .filter(Boolean)
     .join(", ");
+  // Discovery and truth (spec 20.11); the Secret and History stay in the file.
+  const known = l.known === "secret" ? "yes, Secret included" : l.known ? "yes" : "no";
   return [
     `## ${l.title} (${l.stem})${flags ? ` · ${flags}` : ""}`,
     `Keys: ${l.keys.join(", ") || "(none)"} · ${l.path}`,
+    `Known: ${known} · truth: ${l.truth}`,
     "",
     l.body,
   ].join("\n");
