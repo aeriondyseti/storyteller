@@ -1266,3 +1266,56 @@ injection (Secret, History, tags), under the same cooldown, ranking and budget,
 and the compaction rebuild re-injects it. The bible keeps only the on-demand
 index, which lists always-on entries with `always` after their title. This
 replaces the "Lore always in play" section of 20.10.
+
+### 20.13 Slice 3 decisions (2026-10-06, by interview)
+
+Replaces the parts of 20.6 and 20.4 the mod API cannot do as written: link
+targets must be `https:` (custom schemes draw as plain text), and link presses
+work only by mouse in the fullscreen layout.
+
+- **Codex pane** `/storyteller:codex`: an index, then one entry. The index has
+  a search field (filters titles and keys as you type) over the known entries
+  grouped by book (the story's book first, then library books in `uses:`
+  order), then a `Characters` group. Titles follow the truth rule below.
+  Choosing a title shows the entry: its book, public text, then `Secret` only when `known: secret`, then `History` in order, with
+  a Back button. Unknown entries never appear. Keyboard: Tab through the
+  search field and titles, Enter opens, Escape closes the pane.
+- **What truth the player sees.** The codex shows the entry as the player's
+  character understands it: `truth: rumor` is labelled `Rumour:`, `truth:
+  false` is shown with no label (the character believes it). This keeps the
+  codex from spoiling a false belief.
+- **Characters in the codex** are the met ones: cards whose stem is in any
+  scene's `present` list, the persona excluded. The codex shows a card's
+  name, tags and its `## Appearance` section only; every other section is
+  private to Vex.
+- **Glossary links** use `https://codex.invalid/<id>`, where `<id>` is
+  `lore/<stem>` or `character/<stem>`; the mod lists them in `pressableLinks`
+  and opens the codex at that entry (state atom plus `$.ui.scroll`). Linked
+  names: titles and primary keys of known entries, display names of met
+  characters; longest match first, whole words, case-insensitive, first
+  mention per reply only. Where: Vex's narration prose blocks (dialogue and
+  setting blocks keep their colouring and no links), and the names in the
+  scene pane's Present and Now sections as plain buttons (keyboard works).
+- **The codex data** comes from `bun plugin/codex.ts` (story folder as cwd or
+  `RP_STORY`), printing `null` outside a story, else:
+
+  ```ts
+  type CodexSnapshot = {
+    books: { name: string; entries: CodexEntry[] }[];
+    characters: { id: string; name: string; tags: string[]; appearance: string }[];
+    names: { name: string; id: string }[]; // glossary: every linkable name
+  };
+  type CodexEntry = {
+    id: string; title: string; keys: string[];
+    label: "" | "Rumour"; text: string;
+    secret?: string; history: string[];
+  };
+  ```
+
+- **Status sources, renamed in full words** (display labels unchanged):
+  `session.context_pct` -> `session.context_percent`, `usage.session_pct` ->
+  `usage.five_hour_percent`, `usage.weekly_pct` -> `usage.weekly_percent`, and
+  the new `lore.budget_percent`: the estimated lore in context (sum of
+  `injections` chars in `.rp/state.json`) as a percentage of the lore budget
+  (`loreBudget` share of the assumed window, as in 20.10). No aliases for the
+  old names. No abbreviations in code names from here on.
