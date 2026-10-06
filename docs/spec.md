@@ -665,6 +665,27 @@ library overrides.
     names and stems. They come last in the turn's context, on narrator and
     copilot turns alike. The hook reads `suggest` but never writes it: when
     it saves its state, the file's copy of `suggest` (the mod's) wins.
+- **Lorebooks slice 3 data, where 20.13 left room** (2026-10-06; code
+  `src/codex.ts`, `plugin/codex.ts`):
+  - *Book names.* The story's own book is named for the story (its title); a
+    library book by its folder (`varrow-city`). Library entries read from a
+    single file (`uses: [lore/x]` with `library/lore/x.md`) belong to no
+    folder and are grouped as `Library`, placed where their first ref stands
+    in `uses`. A book with no known entries is left out, the story's included.
+  - *Order inside a book* is by title; priority means nothing to the player.
+  - *Met characters* are ordered by name. "The persona" is the one the player
+    plays now (the current scene's, else the story's): a card the player
+    played in an earlier scene and later met as someone else's character is
+    listed. A `present` stem with no card is not listed. Stems compare
+    case-insensitively.
+  - *History lines* drop blank lines and a leading `- `; nothing else is
+    rewritten.
+  - *Glossary order* is codex order: each entry's title, then its keys, book
+    by book, then met characters. A false belief's names link like any other.
+  - *`lore.budget_percent`* is rounded and not capped at 100 (lowering
+    `loreBudget` mid-session can leave more lore in context than fits); it
+    is absent when `loreBudget` is 0. It reads `loreBudget` the way the hooks
+    do (`RP_CONFIG`, else settings.json). It is not in the default layout.
 
 ## 16a. Decisions (2026-10-05, second round)
 
@@ -868,9 +889,9 @@ Each instance is a component bound to a **source**:
       { "type": "text", "source": "scene.title" } ],
     { "separator": " · ",
       "widgets": [
-        { "type": "meter", "label": "ctx", "source": "session.context_pct", "max": 100, "width": 10 },
-        { "type": "meter", "label": "5h", "source": "usage.session_pct", "max": 100 },
-        { "type": "meter", "label": "wk", "source": "usage.weekly_pct", "max": 100 },
+        { "type": "meter", "label": "ctx", "source": "session.context_percent", "max": 100, "width": 10 },
+        { "type": "meter", "label": "5h", "source": "usage.five_hour_percent", "max": 100 },
+        { "type": "meter", "label": "wk", "source": "usage.weekly_percent", "max": 100 },
         { "type": "counter", "label": "notes", "source": "notes.age", "suffix": " ago" },
         { "type": "text", "label": "log", "source": "log.ok" } ] }
   ]
@@ -919,17 +940,18 @@ Each instance is a component bound to a **source**:
 
   | source | from |
   |---|---|
-  | `session.context_pct` | `context_window.used_percentage` (null early in a session; else `total_input_tokens / context_window_size`) |
+  | `session.context_percent` | `context_window.used_percentage` (null early in a session; else `total_input_tokens / context_window_size`) |
   | `session.model` | `model.display_name`, else `model.id` |
   | `session.model_effort` | the model as above and `effort.level` in parentheses: `Opus 5.5 (medium)`; the model alone when there is no effort |
-  | `usage.session_pct` | `rate_limits.five_hour.used_percentage` |
-  | `usage.weekly_pct` | `rate_limits.seven_day.used_percentage` |
+  | `usage.five_hour_percent` | `rate_limits.five_hour.used_percentage` |
+  | `usage.weekly_percent` | `rate_limits.seven_day.used_percentage` |
   | `story.title`, `scene.number`, `scene.title`, `persona.name` | the story on disk (the persona by its card's name) |
   | `scene` | `Scene 1: Arrival`, number and title; added for the default line |
   | `narrator` | story.md `storyteller.name` (Vex by default) and `turn.register` in parentheses: `Vex (copilot)` |
   | `turn.register` | the latest prompt in the transcript, by `registerOf`; `narrator` before the first |
   | `notes.age` | `.rp/state.json` `turn` minus `notesUpdatedAt`; `never` when the notes job has not run |
   | `log.ok` | `✓`, `…` while a turn runs, `✗` when an exchange went by unlogged |
+  | `lore.budget_percent` | the sum of `.rp/state.json` `injections[].chars` over the lore budget in characters (`loreBudgetChars(loreBudget)`, 20.10), times 100, rounded; not capped at 100; absent when `loreBudget` is 0 |
 
   `rate_limits` is in Claude Code's input only for claude.ai Pro and Max
   subscribers, after the session's first reply; each window may be missing on
@@ -958,9 +980,9 @@ Each instance is a component bound to a **source**:
         { "type": "text", "label": "Persona", "source": "persona.name" },
         { "type": "text", "label": "Story", "source": "story.title" },
         { "type": "text", "label": "Scene", "source": "scene" } ],
-      [ { "type": "meter", "label": "ctx", "source": "session.context_pct", "width": 10 },
-        { "type": "meter", "label": "5h", "source": "usage.session_pct" },
-        { "type": "meter", "label": "wk", "source": "usage.weekly_pct" },
+      [ { "type": "meter", "label": "ctx", "source": "session.context_percent", "width": 10 },
+        { "type": "meter", "label": "5h", "source": "usage.five_hour_percent" },
+        { "type": "meter", "label": "wk", "source": "usage.weekly_percent" },
         { "type": "counter", "label": "notes", "source": "notes.age", "suffix": " ago" },
         { "type": "text", "label": "log", "source": "log.ok" } ]
     ]
@@ -985,11 +1007,11 @@ prints it (a test keeps this table equal to the code; regenerate with
 
 | source | what it shows | widget types |
 |---|---|---|
-| `session.context_pct` | How full the context window is | meter, counter, text |
+| `session.context_percent` | How full the context window is | meter, counter, text |
 | `session.model` | The model narrating, by its display name | text, list, tags |
 | `session.model_effort` | The model and its effort level: Opus 5.5 (medium); the model alone without one | text, list, tags |
-| `usage.session_pct` | Plan usage in the current five-hour window (Pro and Max plans) | meter, counter, text |
-| `usage.weekly_pct` | Plan usage this week (Pro and Max plans) | meter, counter, text |
+| `usage.five_hour_percent` | Plan usage in the current five-hour window (Pro and Max plans) | meter, counter, text |
+| `usage.weekly_percent` | Plan usage this week (Pro and Max plans) | meter, counter, text |
 | `story.title` | The story's title | text, list, tags |
 | `scene` | The current scene's number and title: Scene 1: Arrival | text, list, tags |
 | `scene.number` | The current scene's number | counter, meter, clock, text |
@@ -999,6 +1021,7 @@ prints it (a test keeps this table equal to the code; regenerate with
 | `turn.register` | narrator or copilot: whether the last prompt was in the story or about it | text, list, tags |
 | `notes.age` | Turns since the notes were last rewritten (never, if they have not been) | counter, meter, clock, text |
 | `log.ok` | Whether the last exchange reached the scene log: ✓, … while a turn runs, ✗ | text, list, tags |
+| `lore.budget_percent` | How much of the lore budget the lore now in context uses | meter, counter, text |
 
 ### 19.6 Slices
 
@@ -1102,7 +1125,7 @@ A share of the context window (config `loreBudget`, default 0.1), counted two
 ways: new lore this turn may use at most a quarter of it, and the estimated
 lore already in context (the injection record since the last compaction) may
 not exceed it. When full, lower-priority matches wait, and the record notes
-what was cut. The status line gains a `lore.pct` source for the second figure.
+what was cut. The status line gains a `lore.budget_percent` source for the second figure.
 
 ### 20.5 Discovery and truth
 
@@ -1149,7 +1172,7 @@ A one-time script rewrites every existing entry with every field explicit:
    compaction re-injection, the migration script.
 2. **Discovery**: `known`, `truth`, Secret and History sections, the new
    tools, injected text marking rumours and corrections, suggestions to Vex.
-3. **Codex and glossary**: the codex pane, glossary links, `lore.pct`.
+3. **Codex and glossary**: the codex pane, glossary links, `lore.budget_percent`.
 
 ### 20.10 Slice 1 as built (2026-10-06)
 

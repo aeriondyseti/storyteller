@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   contextPercent,
+  loreBudgetPercent,
   resolveSource,
   type StatusInput,
   type StoryFacts,
@@ -28,21 +29,22 @@ const facts: StoryFacts = {
   register: "copilot",
   notesAgo: 2,
   log: "pending",
+  loreBudgetPercent: 37,
 };
 
 describe("Claude Code sources", () => {
   test("from a captured payload", () => {
-    expect(resolveSource("session.context_pct", captured, {})).toBe(4);
+    expect(resolveSource("session.context_percent", captured, {})).toBe(4);
     expect(resolveSource("session.model", captured, {})).toBe("Opus 5.5");
     expect(resolveSource("session.model_effort", captured, {})).toBe("Opus 5.5 (high)");
-    expect(resolveSource("usage.session_pct", captured, {})).toBe(14);
-    expect(resolveSource("usage.weekly_pct", captured, {})).toBe(36);
+    expect(resolveSource("usage.five_hour_percent", captured, {})).toBe(14);
+    expect(resolveSource("usage.weekly_percent", captured, {})).toBe(36);
   });
 
   test("absent before the first reply, and on plans without rate limits", () => {
-    expect(resolveSource("session.context_pct", first, {})).toBeUndefined();
-    expect(resolveSource("usage.session_pct", first, {})).toBeUndefined();
-    expect(resolveSource("usage.weekly_pct", {}, {})).toBeUndefined();
+    expect(resolveSource("session.context_percent", first, {})).toBeUndefined();
+    expect(resolveSource("usage.five_hour_percent", first, {})).toBeUndefined();
+    expect(resolveSource("usage.weekly_percent", {}, {})).toBeUndefined();
     expect(resolveSource("session.model", {}, {})).toBeUndefined();
   });
 
@@ -82,6 +84,7 @@ describe("story and state sources", () => {
     expect(value("notes.age")).toBe(2);
     expect(value("log.ok")).toBe("…");
     expect(value("narrator")).toBe("Vex (copilot)");
+    expect(value("lore.budget_percent")).toBe(37);
   });
 
   test("unknowns: register defaults to narrator, notes that never ran say never", () => {
@@ -92,8 +95,24 @@ describe("story and state sources", () => {
     expect(resolveSource("notes.age", {}, {})).toBeUndefined();
     expect(resolveSource("scene", {}, {})).toBeUndefined();
     expect(resolveSource("log.ok", {}, {})).toBeUndefined();
+    expect(resolveSource("lore.budget_percent", {}, {})).toBeUndefined();
     expect(resolveSource("nope", {}, facts)).toBeUndefined();
   });
+});
+
+test("lore budget percent: lore characters over the budget, none without a budget", () => {
+  expect(loreBudgetPercent(8000, 80_000)).toBe(10);
+  expect(loreBudgetPercent(0, 80_000)).toBe(0);
+  expect(loreBudgetPercent(1234, 10_000)).toBe(12);
+  expect(loreBudgetPercent(90_000, 80_000)).toBe(113);
+  expect(loreBudgetPercent(100, 0)).toBeUndefined();
+});
+
+test("old abbreviated source names are gone, with no aliases", () => {
+  for (const old of ["session.context_pct", "usage.session_pct", "usage.weekly_pct", "lore.pct"]) {
+    expect(resolveSource(old, {}, {})).toBeUndefined();
+    expect(statusSources.some((s) => s.name === old)).toBe(false);
+  }
 });
 
 test("the catalog table lists every source once", () => {

@@ -62,9 +62,9 @@ export const defaultLayout: Layout = {
     },
     {
       widgets: [
-        { type: "meter", label: "ctx", source: "session.context_pct", width: 10 },
-        { type: "meter", label: "5h", source: "usage.session_pct" },
-        { type: "meter", label: "wk", source: "usage.weekly_pct" },
+        { type: "meter", label: "ctx", source: "session.context_percent", width: 10 },
+        { type: "meter", label: "5h", source: "usage.five_hour_percent" },
+        { type: "meter", label: "wk", source: "usage.weekly_percent" },
         { type: "counter", label: "notes", source: "notes.age", suffix: " ago" },
         { type: "text", label: "log", source: "log.ok" },
       ],

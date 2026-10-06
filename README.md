@@ -87,7 +87,9 @@ turns since the notes were updated and whether the log saved. Labels are
 dark and values bold; each bar is green under 60%, yellow to 80% and red
 above. To lay out your own, edit
 `~/.storyteller/statusline.json` by hand and check it with
-`bun plugin/statusline.ts --check`. The format, the default layout as a file
+`bun plugin/statusline.ts --check`. Not in the default but available:
+`lore.budget_percent`, how much of the lore budget the lore in context uses
+(a meter labelled `lore`, say). The format, the default layout as a file
 and the list of sources are in [spec section 19.5](docs/spec.md#195-status-line-widgets).
 
 ## Development

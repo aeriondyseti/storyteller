@@ -55,6 +55,27 @@ export type StageSnapshot = {
   speakers: StageCharacter[];
 };
 
+// The codex pane (spec 20.13): what plugin/codex.ts prints, mirroring
+// CodexSnapshot in src/codex.ts. Known entries only; `secret` only once the
+// Secret is revealed. Ids are `lore/<stem>` or `character/<stem>`.
+
+export type CodexEntry = {
+  id: string;
+  title: string;
+  keys: string[];
+  label: "" | "Rumour";
+  text: string;
+  secret?: string;
+  history: string[];
+};
+
+export type CodexSnapshot = {
+  books: { name: string; entries: CodexEntry[] }[];
+  characters: { id: string; name: string; tags: string[]; appearance: string }[];
+  // The glossary: every linkable name and the id it opens.
+  names: { name: string; id: string }[];
+};
+
 // The directives pane (spec 12): what plugin/directives.ts prints and takes.
 
 export type DirectiveMode = "always" | "keyed" | "manual";

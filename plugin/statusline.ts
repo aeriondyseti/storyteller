@@ -1,7 +1,14 @@
 #!/usr/bin/env bun
+import { loreBudgetChars, loreInContext } from "../src/activation.ts";
+import { loadConfig } from "../src/config.ts";
 import { registerOf } from "../src/log.ts";
 import { posixPath } from "../src/paths.ts";
-import type { LogHealth, StatusInput, StoryFacts } from "../src/status-sources.ts";
+import {
+  type LogHealth,
+  loreBudgetPercent,
+  type StatusInput,
+  type StoryFacts,
+} from "../src/status-sources.ts";
 import { loadLayout, parseLayout, statusLines, statuslinePath } from "../src/statusline-layout.ts";
 import { findCharacter, loadStory, personaOf } from "../src/story.ts";
 import { isStoryDir } from "./hooks/lib/io.ts";
@@ -60,6 +67,10 @@ export async function gather(input: StatusInput, dir: string): Promise<StoryFact
     persona: persona ? (findCharacter(story, persona)?.name ?? persona) : undefined,
     notesAgo: notesAt === null ? null : Math.max(0, state.turn - notesAt),
     log: transcript ? logHealth(transcript, state.lastLogged) : undefined,
+    loreBudgetPercent: loreBudgetPercent(
+      loreInContext(state.injections),
+      loreBudgetChars((await loadConfig()).loreBudget),
+    ),
   };
 }
 
@@ -84,6 +95,7 @@ export const sampleFacts: StoryFacts = {
   register: "copilot",
   notesAgo: 2,
   log: "logged",
+  loreBudgetPercent: 22,
 };
 
 // For the player after editing the file: what is wrong with it, or the lines
