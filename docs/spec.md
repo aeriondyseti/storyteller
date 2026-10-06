@@ -1187,3 +1187,37 @@ Where the text above left room, slice 1 decided this. Code: `src/lore.ts`
   when set. Lists stay on one line. An entry the loader would refuse is
   reported and left alone. For a player's home:
   `bun scripts/migrate-lore.ts ~/.storyteller/stories/* ~/.storyteller/library`.
+
+### 20.11 Slice 2 decisions (2026-10-06, by interview)
+
+- **Injected entries carry everything.** After the public text come
+  `Secret (unknown to <player character>):` (or `Secret:` once `known:
+  secret`) and `History:` with its lines. Recursion, the embedding index and
+  `search_lore` stay on public text. An entry's cost and content hash now
+  cover title, public text, Secret, History, `truth` and `known`, so any of
+  them changing makes it eligible at once.
+- **One edit tag.** There is no `(correction)` tag: every re-injection of a
+  changed entry is `(updated)`. A truth change shows in the heading tag (a
+  rumour that becomes fact loses `(rumour)`), and the newer text wins.
+- **Heading tags.** `### Title (rumour)` followed by the line `People say
+  this; it may not be so.`; `### Title (false)` followed by `Characters
+  believe this; it is not true. The truth is in Secret.` (or `... it is not
+  true.` when there is no Secret). An entry with `known: false` adds
+  `(unknown to <player character>)` to the heading. Order: `(updated)`, truth
+  tag, unknown tag. With no player character the wording is `the player`.
+- **Tools.** `reveal_lore(stem, part?)` sets `known: true`, or `known: secret`
+  with `part: "secret"`; revealing an already known entry is a no-op that says
+  so. `append_lore_history(stem, line)` adds `- Scene <n>: <line>` (current
+  scene number) as the last History line, creating the section. Both keep the
+  rest of the file byte for byte. `search_lore` reports `known` and `truth`
+  per hit. The Storyteller prompt tells Vex to call `reveal_lore` in the turn
+  the fiction reveals something, to append History when the world changes and
+  rewrite the public text to read as the current truth.
+- **Suggestions.** The notes job also lists proper nouns from the turns it
+  reads that have no lore entry (title or key) and no card. The mod tallies
+  them in `.rp/state.json` `nameTally` (name -> notes runs that listed it);
+  a name listed by two runs joins `suggest` (mod-owned list). The prompt-submit
+  hook delivers each name in `suggest` that is not in `suggested` (hook-owned)
+  and still has no entry or card, once, as `Names that keep coming up with no
+  lore or card: A, B. Record them if they matter.`, then adds them to
+  `suggested`. Names compare case-insensitively.
