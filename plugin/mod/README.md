@@ -3,8 +3,10 @@
 The plugin's function-hooks module (a Claude Code "mod"), named in
 `plugin/hooks/hooks.json` under `modules`. `register.tsx` wires two parts:
 `notes.ts` (background notes job) and `stage.tsx` (spec 10: scene pane,
-directives pane, quiet line, reply label and spinner, quieting of coding
-reminders). The scene pane's
+directives pane, codex pane, quiet line, reply label and spinner, quieting of
+coding reminders). The codex (spec 20.13) is `stage/codex.tsx`; its index and
+search are pure in `stage/codex-index.ts`, and the glossary links (names in
+replies and in the scene pane that open it) in `stage/glossary.ts`. The scene pane's
 layout (wrapping, columns, what gives way on a short pane) is pure code in
 `stage/layout.ts`, tested on its own; `stage/scene.tsx` only maps it to elements.
 The same holds for widgets (spec 19.4): their rows, and the panes of their own

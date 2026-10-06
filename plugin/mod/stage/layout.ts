@@ -5,7 +5,8 @@ import type { StagePresent, StageScene, StageWidget } from "../types";
 // the drawing only maps lines to Text and the terminal never re-wraps a value
 // into one long run. No `$` here, so the tests exercise it directly.
 
-export type Run = { text: string; color?: string; dim?: true; bold?: true };
+// `link` names a codex entry (spec 20.13): the pane draws that run as a button.
+export type Run = { text: string; color?: string; dim?: true; bold?: true; link?: string };
 export type Line = Run[];
 
 export type PresentRow = {
@@ -16,6 +17,8 @@ export type PresentRow = {
   tags: string;
   // A portrait drawn left of the name block: only on a wide pane, set by the caller.
   portrait: string | null;
+  // The codex id the name links to, set by the caller when the codex lists it.
+  link?: string;
 };
 
 // One widget (spec 19.4): its row, which may take several lines (a list, tags
@@ -496,7 +499,7 @@ function presentRow(
 export function presentLine(row: PresentRow, w: number): Line {
   const line: Line = [
     { text: "● ", color: row.color },
-    { text: row.name, color: row.color },
+    { text: row.name, color: row.color, ...(row.link ? { link: row.link } : {}) },
   ];
   if (row.tags) line.push({ text: `  ${row.tags}`, dim: true });
   return fit(line, w);
@@ -505,7 +508,10 @@ export function presentLine(row: PresentRow, w: number): Line {
 export function presentLines(row: PresentRow, w: number): Line[] {
   if (!row.portrait) return [presentLine(row, w)];
   const text = w - PORTRAIT.columns - 1;
-  const name = fit([{ text: row.name, color: row.color, bold: true }], text);
+  const name = fit(
+    [{ text: row.name, color: row.color, bold: true, ...(row.link ? { link: row.link } : {}) }],
+    text,
+  );
   return row.tags ? [name, fit([{ text: row.tags, dim: true }], text)] : [name];
 }
 

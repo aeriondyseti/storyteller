@@ -1,6 +1,8 @@
 import type { EngineInterface, Register, RenderChildren, RenderInput } from "claude-code";
 import { atom, read, update } from "claude-code";
 import type { StageSnapshot } from "../types";
+import { CODEX_PANE, paneAt } from "./codex-index.ts";
+import { glossaryOf, linkLine } from "./glossary.ts";
 import {
   BLANK,
   besidePortrait,
@@ -43,6 +45,12 @@ const stage = atom({ plugin: "storyteller", key: "stage" } as const, null);
 const paneAsked = atom({ plugin: "storyteller", key: "paneAsked" } as const, false);
 const voicing = atom({ plugin: "storyteller", key: "voicing" } as const, null);
 const closedPanes = atom({ plugin: "storyteller", key: "closedPanes" } as const, []);
+// Written by codex.tsx: names in Now and Present that open the codex.
+const codex = atom({ plugin: "storyteller", key: "codex" } as const, null);
+const codexPane = atom({ plugin: "storyteller", key: "codexPane" } as const, {
+  entry: null,
+  search: "",
+});
 const widgetPane = new RegExp(`^${WIDGET_PANE_PREFIX}`);
 
 export const registerScene: Register = (on, options) => {
@@ -171,6 +179,17 @@ function watchScene($: EngineInterface): void {
   });
 }
 
+// Opens the codex pane at a codex id (stage/codex.tsx draws it), from the
+// person's press, so it seats at any width. Spelled here, not imported: the
+// engine follows `$` into no function of another file.
+async function openCodex($: EngineInterface, id: string): Promise<void> {
+  const data = await read($, codex);
+  await update($, codexPane, () => paneAt(data, id));
+  await $.ui.open(CODEX_PANE);
+  // A pane already open keeps its scroll: bring the entry's top into view.
+  void $.ui.scroll({ to: { key: "back" }, in: CODEX_PANE.id, block: "start" }).catch(() => {});
+}
+
 async function drawPane($: EngineInterface, e: RenderInput<"Pane">) {
   const { Box, Text } = $.ui.resolve(e);
   const snapshot = await read($, stage);
@@ -192,6 +211,17 @@ async function drawPane($: EngineInterface, e: RenderInput<"Pane">) {
     colorFor(snapshot.storyteller),
     colorFor,
   );
+  // Codex names (spec 20.13): in Now the first mention of each, in Present
+  // every character the codex lists, drawn as buttons that open it there.
+  const names = (await read($, codex))?.names ?? [];
+  const glossary = glossaryOf(names);
+  const ids = new Set(names.map((n) => n.id));
+  const mentioned = new Set<string>();
+  const now = plan.now.map((l) => linkLine(l, glossary, mentioned));
+  const present = plan.present.map((row) => {
+    const id = `character/${row.stem}`;
+    return ids.has(id) ? { ...row, link: id } : row;
+  });
   const inner = frameInner(columns);
   const line = (runs: Line) => drawLine($, e, runs);
   const inside = (runs: Line) => line(framed(runs, columns));
@@ -210,10 +240,13 @@ async function drawPane($: EngineInterface, e: RenderInput<"Pane">) {
   return (
     <Box flexDirection="column">
       {plan.header.map(line)}
-      {section("Now", plan.now.map(inside))}
+      {section(
+        "Now",
+        now.map((runs) => drawLine($, e, framed(runs, columns), "now")),
+      )}
       {section(
         "Present",
-        plan.present.map((row) => presentRow($, e, row, columns)),
+        present.map((row) => presentRow($, e, row, columns)),
       )}
       {section("Widgets", groupLines(plan.widgets, inner).map(inside))}
     </Box>
@@ -221,9 +254,29 @@ async function drawPane($: EngineInterface, e: RenderInput<"Pane">) {
 }
 
 // A planned line is already wrapped and cut to the pane, so each is one Text
-// that truncates rather than wraps: a miscounted cell never adds a row.
-function drawLine($: EngineInterface, e: RenderInput<"Pane">, runs: Line) {
-  const { Text } = $.ui.resolve(e);
+// that truncates rather than wraps: a miscounted cell never adds a row. A
+// line holding codex names is a row of Texts and plain Buttons instead, each
+// button keyed `<where>:<codex id>`.
+function drawLine($: EngineInterface, e: RenderInput<"Pane">, runs: Line, where = "line") {
+  const { Box, Text, Button } = $.ui.resolve(e);
+  if (runs.some((run) => run.link)) {
+    return (
+      <Box flexDirection="row">
+        {runs.map((run) => {
+          const { link } = run;
+          return link ? (
+            <Button key={`${where}:${link}`} plain onPress={() => openCodex($, link)}>
+              {run.text}
+            </Button>
+          ) : (
+            <Text wrap="truncate-end" {...style(run)}>
+              {run.text}
+            </Text>
+          );
+        })}
+      </Box>
+    );
+  }
   const [only] = runs;
   if (runs.length === 1 && only) {
     return (
@@ -263,7 +316,7 @@ function presentRow($: EngineInterface, e: RenderInput<"Pane">, row: PresentRow,
   const inner = frameInner(columns);
   const lines = presentLines(row, inner);
   if (e.surface !== "terminal" || !row.portrait)
-    return drawLine($, e, framed(lines[0] ?? [], columns));
+    return drawLine($, e, framed(lines[0] ?? [], columns), "present");
   const { Box, Image } = $.ui.resolve(e);
   const rows = Array.from({ length: PORTRAIT.rows }, (_, i) => i);
   const textW = inner - PORTRAIT.columns - 1;
@@ -279,7 +332,7 @@ function presentRow($: EngineInterface, e: RenderInput<"Pane">, row: PresentRow,
         alt={`portrait of ${row.name}`}
       />
       <Box flexDirection="column">
-        {rows.map((i) => drawLine($, e, besidePortrait(lines[i] ?? [], textW)))}
+        {rows.map((i) => drawLine($, e, besidePortrait(lines[i] ?? [], textW), "present"))}
       </Box>
     </Box>
   );

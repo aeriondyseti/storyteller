@@ -131,6 +131,31 @@ export type DirectivesPane = {
   notice: { text: string; isError: boolean } | null;
 };
 
+// The codex (spec 20.13): what plugin/codex.ts prints, exactly as §20.13
+// gives it, and the codex pane's own state.
+
+export type CodexSnapshot = {
+  books: { name: string; entries: CodexEntry[] }[];
+  characters: { id: string; name: string; tags: string[]; appearance: string }[];
+  names: { name: string; id: string }[]; // glossary: every linkable name
+};
+
+export type CodexEntry = {
+  id: string;
+  title: string;
+  keys: string[];
+  label: "" | "Rumour";
+  text: string;
+  secret?: string;
+  history: string[];
+};
+
+// Which entry or character the pane shows (null: the index), and the search.
+export type CodexPane = {
+  entry: string | null;
+  search: string;
+};
+
 declare module "claude-code" {
   interface PluginState {
     storyteller: {
@@ -151,6 +176,11 @@ declare module "claude-code" {
       // Ids of widget panes the person closed by hand: not reopened while
       // their widgets stay, so a closed pane stays closed.
       closedPanes: string[];
+      // The codex as plugin/codex.ts last printed it: the pane and the
+      // glossary links draw from it; null outside a story.
+      codex: CodexSnapshot | null;
+      // The codex pane: the entry it shows, or the index, and the search.
+      codexPane: CodexPane;
     };
   }
 }
