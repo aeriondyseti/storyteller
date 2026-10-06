@@ -75,6 +75,10 @@ describe("quiet line", () => {
       "notes the time",
     );
     expect(quietPhrase("mcp__world__upsert_character", {}, undefined)).toBe("writes a card");
+    expect(quietPhrase("mcp__world__reveal_lore", {}, undefined)).toBe("notes what you now know");
+    expect(quietPhrase("mcp__world__append_lore_history", {}, undefined)).toBe(
+      "adds to the chronicle",
+    );
     expect(quietPhrase("Skill", { skill: "storyteller:scene-close" }, undefined)).toBe(
       "considers the craft",
     );

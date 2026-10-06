@@ -1,12 +1,22 @@
 import type { ModelCompleteResult, On } from "claude-code";
 import { describe, expect, mock, test } from "claude-code/testing";
-import { lastExchanges, parseLogTurns, parseNotes, renderTurns, withNotes } from "./notes.ts";
+import {
+  lastExchanges,
+  parseLogTurns,
+  parseNames,
+  parseNotes,
+  renderTurns,
+  tallyNames,
+  unknownNames,
+  withNotes,
+} from "./notes.ts";
 
 // The notes job against an in-memory story folder: $.fs, $.session.cwd,
 // $.model.complete and $.process.run are answered by the test's own hooks,
 // which sit beneath the plugin where the engine would.
 
 const story = "C:/stories/hollow";
+const library = "C:/library";
 const sceneMd = `${story}/scenes/001-arrival/scene.md`;
 const logJsonl = `${story}/scenes/001-arrival/log.jsonl`;
 const stateJson = `${story}/.rp/state.json`;
@@ -327,6 +337,67 @@ describe("notes job", () => {
     expect(w.files.has(`${story}/.rp/hook-errors.log`)).toBe(false);
   });
 
+  test("tallies names with no lore or card and suggests them at two runs", async ($, on) => {
+    const clock = mock.clock(on);
+    mock.env(on, { RP_LIBRARY: library });
+    const names =
+      "\n## Names\n\n- Brother Anselm\n- Mira\n- the Lamp Hall\n- Varrow\n- Tallow Stair\n";
+    const w = world(
+      on,
+      storyFiles({
+        [`${story}/story.md`]:
+          "---\ntitle: The Hollow Crown\npersona: corwin\nuses:\n  - characters/edda\n  - lore/varrow-city\n  - lore/old-gods/ysolde\n---\n",
+        [`${story}/characters/mira.md`]: "---\nname: Mira Tessaly\n---\n",
+        [`${story}/lore/lamp-hall.md`]:
+          "---\ntitle: The Lamp Hall\nkeys: [lamp hall]\n---\nText.\n",
+        [`${library}/characters/edda.md`]: "---\nname: Edda Vane\n---\n",
+        [`${library}/lore/varrow-city/varrow.md`]: "---\ntitle: Varrow\nkeys:\n  - harbour\n---\n",
+        [`${library}/lore/old-gods/ysolde.md`]: "---\ntitle: Ysolde\n---\n",
+        [stateJson]: JSON.stringify({ turn: 2, suggested: ["Old"], keyedHashes: { a: "1" } }),
+      }),
+      { isAnswered: true, text: `${reply}${names}`, usage },
+    );
+    await $.turn.complete(finished);
+    await clock.advance(1000);
+
+    const sent = w.prompts[0]?.prompt ?? "";
+    expect(sent).toContain(
+      "<known_names>\nCorwin\nedda\nEdda Vane\nharbour\nlamp hall\nmira\nMira Tessaly\nThe Lamp Hall\nVarrow\nYsolde\n</known_names>",
+    );
+    // The names never reach scene.md.
+    expect(w.files.get(sceneMd)).not.toContain("Anselm");
+    expect(w.files.get(sceneMd)).toContain("- The door is barred.\n");
+    let state = JSON.parse(w.files.get(stateJson) ?? "{}");
+    expect(state.nameTally).toEqual({ "Brother Anselm": 1, "Tallow Stair": 1 });
+    expect(state.suggest).toEqual([]);
+
+    await $.turn.complete(finished);
+    await clock.advance(1000);
+    state = JSON.parse(w.files.get(stateJson) ?? "{}");
+    expect(state.nameTally).toEqual({ "Brother Anselm": 2, "Tallow Stair": 2 });
+    expect(state.suggest).toEqual(["Brother Anselm", "Tallow Stair"]);
+    expect(state.suggested).toEqual(["Old"]);
+    expect(state.keyedHashes).toEqual({ a: "1" });
+    expect(state.notesTurn).toBe(2);
+    expect(w.logs).toEqual([]);
+  });
+
+  test("a reply without names still updates the notes", async ($, on) => {
+    const clock = mock.clock(on);
+    mock.env(on, { RP_LIBRARY: library });
+    const w = world(on, storyFiles(), {
+      isAnswered: true,
+      text: `${reply}\n## Names\n\nBrother Anselm, Tallow Stair\n`,
+      usage,
+    });
+    await $.turn.complete(finished);
+    await clock.advance(1000);
+    expect(w.files.get(sceneMd)).toContain("- The door is barred.");
+    expect(w.files.get(sceneMd)).not.toContain("Anselm");
+    expect(JSON.parse(w.files.get(stateJson) ?? "{}").nameTally).toBeUndefined();
+    expect(w.logs).toEqual([]);
+  });
+
   test("subagent turns and interrupted turns do nothing", async ($, on) => {
     const clock = mock.clock(on);
     const w = world(on, storyFiles());
@@ -341,6 +412,71 @@ describe("notes helpers", () => {
   test("parseNotes needs both sections and tolerates a fence", () => {
     expect(parseNotes(`\`\`\`\n${reply}\`\`\``)?.now).toStartWith("Corwin is inside");
     expect(parseNotes("## Now\n\nOnly now.")).toBeUndefined();
+  });
+
+  test("parseNotes stops Notes at ## Names", () => {
+    const parsed = parseNotes(`${reply}\n## Names\n\n- Brother Anselm\n`);
+    expect(parsed?.notes).toEndWith("- The door is barred.");
+  });
+
+  test("parseNames reads `- ` lines under ## Names and nothing else", () => {
+    const names = (body: string) => parseNames(`${reply}\n## Names\n\n${body}`);
+    expect(names('- Brother Anselm\n* Tallow Stair.\n- "The Salt Market"\n')).toEqual([
+      "Brother Anselm",
+      "Tallow Stair",
+      "The Salt Market",
+    ]);
+    expect(names("- none\n")).toEqual([]);
+    expect(names("Brother Anselm, Tallow Stair\n")).toEqual([]);
+    expect(names(`- ${"x".repeat(61)}\n- 42\n- Ok`)).toEqual(["Ok"]);
+    expect(names(Array.from({ length: 30 }, (_, i) => `- Name${i}`).join("\n"))).toHaveLength(20);
+    expect(parseNames(reply)).toEqual([]);
+    expect(parseNames(`\`\`\`\n${reply}\n## Names\n\n- Anselm\n\`\`\``)).toEqual(["Anselm"]);
+  });
+
+  test("unknownNames drops known names, their shorter forms and repeats", () => {
+    const known = { all: ["Mira Tessaly", "The Lamp Hall", "harbour", "corwin"] };
+    expect(
+      unknownNames(
+        [
+          "Mira",
+          "MIRA TESSALY",
+          "Lamp Hall",
+          "the harbour",
+          "Corwin's",
+          "Tessaly Mira",
+          "Anselm",
+          "anselm",
+          "Hall Lamp",
+        ],
+        known,
+      ),
+    ).toEqual(["Tessaly Mira", "Anselm", "Hall Lamp"]);
+  });
+
+  test("tallyNames counts once per run, suggests at two, never removes", () => {
+    const first = tallyNames({}, ["Anselm", "anselm", "Tallow Stair"]);
+    expect(first).toEqual({ nameTally: { Anselm: 1, "Tallow Stair": 1 }, suggest: [] });
+    const second = tallyNames(first, ["ANSELM"]);
+    expect(second).toEqual({ nameTally: { Anselm: 2, "Tallow Stair": 1 }, suggest: ["Anselm"] });
+    const third = tallyNames(second, ["anselm", "Tallow Stair"]);
+    expect(third).toEqual({
+      nameTally: { Anselm: 3, "Tallow Stair": 2 },
+      suggest: ["Anselm", "Tallow Stair"],
+    });
+    // A name already in suggest (any case) is not added twice.
+    expect(tallyNames({ nameTally: { Brell: 1 }, suggest: ["brell"] }, ["Brell"]).suggest).toEqual([
+      "brell",
+    ]);
+    // Malformed stored keys are replaced by valid ones.
+    expect(tallyNames({ nameTally: [1, 2], suggest: "Brell" }, ["Brell"])).toEqual({
+      nameTally: { Brell: 1 },
+      suggest: [],
+    });
+    expect(tallyNames({ nameTally: { Brell: "2", Ok: 1 }, suggest: [3, "Ok"] }, [])).toEqual({
+      nameTally: { Ok: 1 },
+      suggest: ["Ok"],
+    });
   });
 
   test("withNotes appends missing sections and keeps others", () => {

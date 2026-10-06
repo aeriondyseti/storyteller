@@ -4,7 +4,9 @@ import type { EngineInterface, PluginOptions, Register } from "claude-code";
 // `notesEvery` turns, ask the notes model to rewrite the current scene's
 // `## Now` and `## Notes` from the previous notes and the newest log turns
 // (shape and rules: plugin/prompts/notes.md), write them into scene.md, and
-// re-embed the scene for recall.
+// re-embed the scene for recall. The same reply lists the proper nouns in
+// those turns that have no lore entry or card; the job tallies them in
+// state.json for the prompt-submit hook to suggest to the Storyteller (20.11).
 //
 // The mod runs in its own environment with no Node and cannot import from
 // src/ or server/, so the little it needs (frontmatter fields, log lines,
@@ -25,8 +27,20 @@ type Engine = EngineInterface;
 
 export type NotesSettings = { every: number; model: string };
 
-// state.json keys this job owns; the hooks keep theirs (turn, injected, ...).
-export type NotesState = { turn?: number; notesTurn?: number; notesUpdatedAt?: number };
+// state.json keys this job owns: notesTurn, notesUpdatedAt, nameTally and
+// suggest. The hooks keep theirs (turn, injections, activation, lastLogged,
+// inForce, keyedHashes, sessionId, suggested, ...), and `turn` is read here.
+export type NotesState = {
+  turn?: number;
+  notesTurn?: number;
+  notesUpdatedAt?: number;
+  // Name -> how many notes runs listed it (spec 20.11).
+  nameTally?: Record<string, number>;
+  // Names listed by two runs, for the prompt-submit hook to pass to the
+  // Storyteller; only ever grows (the hook keeps what it delivered in
+  // `suggested`).
+  suggest?: string[];
+};
 
 const logWaitMs = 500;
 const logWaitTries = 40;
@@ -117,9 +131,13 @@ export async function runNotesJob(
   const persona =
     field(frontmatter(sceneText), "persona") ?? field(frontmatter(storyText), "persona");
   const cast = (await characterStems($, storyDir, storyText)).filter((s) => s !== persona);
+  // Undefined when the lore or cards could not be read: the notes still run,
+  // and no names are tallied, since nothing could be filtered against.
+  const known = await knownNames($, storyDir, storyText).catch(() => undefined);
   const prompt = notesPrompt({
     persona: persona ?? "",
     cast,
+    known: known?.all ?? [],
     previous: previousNotes(bodyOf(sceneText)),
     turns: renderTurns(lastExchanges(turns, 2 * settings.every + 2)),
   });
@@ -139,6 +157,17 @@ export async function runNotesJob(
   const current = await $.fs.read(scene.path);
   await $.fs.write(scene.path, withNotes(current, notes));
   await mergeState($, storyDir, { notesUpdatedAt: (await readState($, storyDir)).turn ?? 0 });
+
+  // After the notes are safe on disk, so a fault here costs only the names.
+  if (known) {
+    try {
+      const names = unknownNames(parseNames(reply.text), known);
+      if (names.length)
+        await mergeState($, storyDir, tallyNames(await readState($, storyDir), names));
+    } catch (error) {
+      $.ui.log(`names not tallied (${errorText(error)})`);
+    }
+  }
 
   const script = `${slash($.plugin.root)}/../scripts/reindex.ts`;
   const run = await $.process.run(["bun", script, storyDir, "--incremental"], {
@@ -400,17 +429,152 @@ async function characterStems($: Engine, storyDir: string, storyText: string): P
   return [...stems].sort();
 }
 
+// --- names with no lore or card (spec 20.7, 20.11) ---
+
+// Every name the story already has a record for: each card's stem and `name`,
+// each lore entry's `title` and `keys`, from the story and the library refs
+// in `uses` (books whole or one entry). A story file overrides a library one
+// of the same stem, but both are lore, so reading both changes nothing here.
+export type KnownNames = { all: string[] };
+
+async function knownNames($: Engine, storyDir: string, storyText: string): Promise<KnownNames> {
+  const library = await libraryRoot($);
+  const cards = await markdownFiles($, `${storyDir}/characters`);
+  const lore = await markdownFiles($, `${storyDir}/lore`);
+  for (const ref of library ? listField(frontmatter(storyText), "uses") : []) {
+    const [kind, first, second] = ref.replace(/\.md$/, "").split("/");
+    if (kind === "characters" && first && !second) {
+      cards.push(`${library}/characters/${first}.md`);
+    } else if (kind === "lore" && first && second) {
+      lore.push(`${library}/lore/${first}/${second}.md`);
+    } else if (kind === "lore" && first) {
+      // A single file named like a book wins, as in src/library.ts resolveUse.
+      const single = `${library}/lore/${first}.md`;
+      if (await $.fs.exists(single)) lore.push(single);
+      else lore.push(...(await markdownFiles($, `${library}/lore/${first}`)));
+    }
+  }
+  // Keyed by lower case, so `Mira` and the stem `mira` are one line.
+  const names = new Map<string, string>();
+  const add = (name: string | undefined) => {
+    if (name && !names.has(name.toLowerCase())) names.set(name.toLowerCase(), name);
+  };
+  for (const path of cards) {
+    add(field(await frontmatterOf($, path), "name"));
+    add(path.slice(path.lastIndexOf("/") + 1, -3));
+  }
+  for (const path of lore) {
+    const fm = await frontmatterOf($, path);
+    for (const name of [field(fm, "title"), ...listField(fm, "keys")]) add(name);
+  }
+  return { all: [...names.values()].sort((a, b) => a.localeCompare(b)) };
+}
+
+// The library as src/paths.ts libraryRoot finds it: RP_LIBRARY, else
+// ~/.storyteller/library. Without a home the library books are skipped.
+async function libraryRoot($: Engine): Promise<string> {
+  const override = await $.env.get("RP_LIBRARY");
+  if (override) return slash(override).replace(/\/$/, "");
+  const home = (await $.env.get("USERPROFILE")) ?? (await $.env.get("HOME")) ?? "";
+  return home ? `${slash(home).replace(/\/$/, "")}/.storyteller/library` : "";
+}
+
+async function markdownFiles($: Engine, dir: string): Promise<string[]> {
+  if (!(await $.fs.exists(dir))) return [];
+  return (await $.fs.list(dir))
+    .filter((e) => e.kind === "file" && e.name.endsWith(".md"))
+    .map((e) => `${dir}/${e.name}`)
+    .sort();
+}
+
+async function frontmatterOf($: Engine, path: string): Promise<string> {
+  return (await $.fs.exists(path)) ? frontmatter(await $.fs.read(path)) : "";
+}
+
+// The names under the reply's "## Names", one `- ` line each; "none", a
+// missing section or anything else there means no names. Capped, so a reply
+// gone wrong cannot flood the tally.
+export function parseNames(reply: string): string[] {
+  const text = section(reply.replace(/\n```\s*$/, ""), "Names");
+  if (!text) return [];
+  const names: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const item = /^\s*[-*]\s+(.+)$/.exec(line);
+    const name = unquote(squash(item?.[1] ?? "").replace(/[.,;:]+$/, ""));
+    if (!name || name.length > 60 || !/\p{L}/u.test(name) || /^none\b/i.test(name)) continue;
+    names.push(name);
+  }
+  return names.slice(0, 20);
+}
+
+// The model may slip, so names it lists are checked again: a name is covered
+// when it matches a known name, or is whole words inside one ("Mira" of "Mira
+// Tessaly", "Lamp Hall" of "The Lamp Hall"), ignoring case and a leading
+// "the". Duplicates go, keeping the first spelling.
+export function unknownNames(names: string[], known: KnownNames): string[] {
+  const terms = known.all.map(normalName).filter(Boolean);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of names) {
+    const n = normalName(name);
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    if (terms.some((t) => ` ${t} `.includes(` ${n} `))) continue;
+    out.push(name);
+  }
+  return out;
+}
+
+function normalName(name: string): string {
+  return squash(name.toLowerCase().replace(/[^\p{L}\p{N}' -]/gu, " "))
+    .replace(/^the /, "")
+    .replace(/'s$/, "");
+}
+
+// One notes run's names into the state: each counts once per run; a name at
+// two runs joins `suggest`. Names compare case-insensitively and keep the
+// spelling first seen. Whatever shape the stored keys have, the result is valid.
+export function tallyNames(
+  state: Record<string, unknown>,
+  names: string[],
+): Required<Pick<NotesState, "nameTally" | "suggest">> {
+  const nameTally: Record<string, number> = {};
+  const stored = state.nameTally;
+  if (typeof stored === "object" && stored !== null && !Array.isArray(stored)) {
+    for (const [name, count] of Object.entries(stored)) {
+      if (typeof count === "number" && Number.isFinite(count)) nameTally[name] = count;
+    }
+  }
+  const suggest = Array.isArray(state.suggest)
+    ? state.suggest.filter((s): s is string => typeof s === "string")
+    : [];
+  const keyOf = (name: string) =>
+    Object.keys(nameTally).find((k) => k.toLowerCase() === name.toLowerCase()) ?? name;
+  const counted = new Set<string>();
+  for (const name of names) {
+    const key = keyOf(name);
+    if (counted.has(key.toLowerCase())) continue;
+    counted.add(key.toLowerCase());
+    nameTally[key] = (nameTally[key] ?? 0) + 1;
+    const listed = suggest.some((s) => s.toLowerCase() === key.toLowerCase());
+    if ((nameTally[key] ?? 0) >= 2 && !listed) suggest.push(key);
+  }
+  return { nameTally, suggest };
+}
+
 // --- notes in and out ---
 
 export function notesPrompt(input: {
   persona: string;
   cast: string[];
+  known: string[];
   previous: string;
   turns: string;
 }): string {
   return [
     `<persona>\n${input.persona}\n</persona>`,
     `<cast>\n${input.cast.join("\n")}\n</cast>`,
+    `<known_names>\n${input.known.join("\n")}\n</known_names>`,
     `<previous_notes>\n${input.previous}\n</previous_notes>`,
     `<turns>\n${input.turns}\n</turns>`,
   ].join("\n\n");
@@ -426,8 +590,9 @@ export function previousNotes(body: string): string {
 
 export type Notes = { now: string; notes: string };
 
-// The reply should be exactly the two sections; tolerate a code fence or a
-// stray line around them, but not a missing section.
+// The reply should be exactly the two sections and `## Names` (parseNames),
+// which ends Notes the way any "## " heading would; tolerate a code fence or
+// a stray line around them, but not a missing section.
 export function parseNotes(reply: string): Notes | undefined {
   const text = reply.replace(/^\s*```[a-z]*\s*\n/i, "").replace(/\n```\s*$/, "");
   const now = section(text, "Now");
