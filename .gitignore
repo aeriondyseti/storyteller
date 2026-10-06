@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Generated per story by the launcher (regenerated on every launch)
+.rp/
+stories/*/CLAUDE.md
+
+# Local env / secrets
+.env
+.env.*
+
+# Claude Code per-machine state (settings.json is committable)
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.*
+
+# Personal overrides
+CLAUDE.local.md
+
+# Working docs
+scratch/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Written by Claude Code when it loads the plugin as a mod (the mod keeps its
+# own config in plugin/mod/tsconfig.json)
+plugin/tsconfig.json

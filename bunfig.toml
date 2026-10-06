@@ -1,0 +1,6 @@
+[test]
+# plugin/mod/**/*.test.ts(x) are the mod's tests: they import 'claude-code/testing'
+# and run under `claude plugin test` (bun scripts/test-mod.ts), not `bun test`.
+# That runner takes every *.test.ts under plugin/, so the Bun tests of
+# plugin/hooks are named *.spec.ts instead.
+pathIgnorePatterns = ["plugin/mod/**"]

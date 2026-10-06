@@ -1,0 +1,75 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "/home/player/.claude/projects/-home-player--claude-roleplay-stories-the-hollow-crown/00000000-0000-4000-8000-000000000001.jsonl",
+  "cwd": "/home/player/.claude-roleplay/stories/the-hollow-crown",
+  "scratchpad_dir": "/tmp/claude/scratchpad",
+  "prompt_id": "00000000-0000-4000-8000-000000000002",
+  "effort": {
+    "level": "high"
+  },
+  "session_name": "The Hollow Crown",
+  "model": {
+    "id": "claude-opus-5-5",
+    "display_name": "Opus 5.5"
+  },
+  "workspace": {
+    "current_dir": "/home/player/.claude-roleplay/stories/the-hollow-crown",
+    "project_dir": "/home/player/.claude-roleplay/stories/the-hollow-crown",
+    "added_dirs": []
+  },
+  "version": "2.1.290",
+  "output_style": {
+    "name": "default"
+  },
+  "cost": {
+    "total_cost_usd": 0.29087999999999997,
+    "total_duration_ms": 4726,
+    "total_api_duration_ms": 2333,
+    "total_lines_added": 0,
+    "total_lines_removed": 0
+  },
+  "context_window": {
+    "total_input_tokens": 35851,
+    "total_output_tokens": 204,
+    "context_window_size": 1000000,
+    "current_usage": {
+      "input_tokens": 2,
+      "output_tokens": 204,
+      "cache_creation_input_tokens": 35849,
+      "cache_read_input_tokens": 0
+    },
+    "used_percentage": 4,
+    "remaining_percentage": 96
+  },
+  "exceeds_200k_tokens": false,
+  "prompt_cache": {
+    "warm": true,
+    "caching_observed": true,
+    "ttl": "1h",
+    "expires_at": 1791260251,
+    "requests": 1,
+    "misses": 0,
+    "expected_rebuilds": 0,
+    "hit_ratio": 0,
+    "cache_write_tokens": 35849,
+    "miss_recache_tokens": 0,
+    "last_miss_at": null,
+    "last_miss_cause": null,
+    "miss_causes": {},
+    "recache_tokens_if_cold": 35851
+  },
+  "fast_mode": false,
+  "thinking": {
+    "enabled": true
+  },
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 14,
+      "resets_at": 1791267600
+    },
+    "seven_day": {
+      "used_percentage": 36,
+      "resets_at": 1791709200
+    }
+  }
+}

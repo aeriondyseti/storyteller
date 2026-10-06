@@ -1,0 +1,71 @@
+{
+  "name": "storyteller",
+  "version": "0.1.0",
+  "description": "Roleplay and collaborative storytelling: a Storyteller agent, world tools, lorebook hooks and a scene pane for Claude Code",
+  "author": { "name": "Kevin W" },
+  "types": "./mod/types/index.d.ts",
+  "userConfig": {
+    "notesEvery": {
+      "type": "number",
+      "title": "Notes every N turns",
+      "description": "Run the background notes job every N completed turns",
+      "default": 1,
+      "min": 1
+    },
+    "notesModel": {
+      "type": "string",
+      "title": "Notes model",
+      "description": "Model for the background notes job",
+      "default": "haiku"
+    },
+    "narratorModel": {
+      "type": "string",
+      "title": "Narrator model",
+      "description": "Model the launcher passes with --model; empty uses the engine default",
+      "default": ""
+    },
+    "narratorEffort": {
+      "type": "string",
+      "title": "Narrator effort",
+      "description": "Effort for narration",
+      "default": "high",
+      "options": ["low", "medium", "high", "xhigh", "max"]
+    },
+    "embeddings": {
+      "type": "string",
+      "title": "Embeddings",
+      "description": "Embedding provider for recall",
+      "default": "local",
+      "options": ["local", "hosted"]
+    },
+    "paneOnStart": {
+      "type": "boolean",
+      "title": "Open scene pane on start",
+      "description": "Open the scene pane when the layout docks one",
+      "default": true
+    },
+    "contextBudget": {
+      "type": "number",
+      "title": "Context budget",
+      "description": "Share of the context window for standing material (0 to 1)",
+      "default": 0.25,
+      "min": 0,
+      "max": 1
+    },
+    "loreBudget": {
+      "type": "number",
+      "title": "Lore budget",
+      "description": "Share of the context window lore may fill (0 to 1); a quarter of it per turn",
+      "default": 0.1,
+      "min": 0,
+      "max": 1
+    },
+    "loreScanDepth": {
+      "type": "number",
+      "title": "Lore scan depth",
+      "description": "Logged turns, besides the new prompt, scanned for lore keys",
+      "default": 3,
+      "min": 0
+    }
+  }
+}

@@ -1,0 +1,4 @@
+{"n":1,"speaker":"player","name":"Corwin Hale","register":"narrator","at":"2026-10-05T20:00:00.000Z","uuid":"p1","text":"I climb the stair."}
+{"n":1,"speaker":"storyteller","name":"Vex","register":"narrator","at":"2026-10-05T20:00:12.000Z","uuid":"a1","text":"*The Tallow Stair, an hour before dawn.*\n\nMira lifts the lantern."}
+{"n":2,"speaker":"player","name":"Corwin Hale","register":"narrator","at":"2026-10-05T20:01:00.000Z","uuid":"p2","text":"\"You waited.\""}
+{"n":2,"speaker":"storyteller","name":"Vex","register":"narrator","at":"2026-10-05T20:01:09.000Z","uuid":"a2","text":"\"Someone had to.\""}
