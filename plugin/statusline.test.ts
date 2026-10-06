@@ -47,7 +47,17 @@ async function run(layout: unknown): Promise<string> {
   const dir = await copyStory(saltmereDir);
   await Bun.write(
     `${dir}/.rp/state.json`,
-    JSON.stringify({ turn: 5, injected: {}, lastLogged: "u2", notesTurn: 4, notesUpdatedAt: 4 }),
+    JSON.stringify({
+      turn: 5,
+      lastLogged: "u2",
+      notesTurn: 4,
+      notesUpdatedAt: 4,
+      // 8,000 characters of lore against the default budget of 80,000.
+      injections: [
+        { ref: "lore/a", turn: 3, hash: "x", chars: 6000 },
+        { ref: "lore/b", turn: 4, hash: "y", chars: 2000 },
+      ],
+    }),
   );
   const home = await tempDir();
   const transcriptPath = `${home}/t.jsonl`;
@@ -60,7 +70,13 @@ async function run(layout: unknown): Promise<string> {
   const captured = await Bun.file(`${fixtures}/statusline-input.json`).json();
   const proc = Bun.spawn(["bun", path.join(import.meta.dir, "statusline.ts")], {
     stdin: new Blob([JSON.stringify({ ...captured, cwd: dir, transcript_path: transcriptPath })]),
-    env: { ...process.env, RP_STORY: dir, RP_LIBRARY: fixtureLibrary, RP_STATUSLINE: statusline },
+    env: {
+      ...process.env,
+      RP_CONFIG: "{}",
+      RP_STORY: dir,
+      RP_LIBRARY: fixtureLibrary,
+      RP_STATUSLINE: statusline,
+    },
     stdout: "pipe",
   });
   return new Response(proc.stdout).text();
@@ -94,9 +110,9 @@ describe("the script", () => {
         {
           separator: " · ",
           widgets: [
-            { type: "meter", label: "ctx", source: "session.context_pct", width: 5 },
-            { type: "meter", label: "5h", source: "usage.session_pct", width: 5 },
-            { type: "meter", label: "wk", source: "usage.weekly_pct", width: 5 },
+            { type: "meter", label: "ctx", source: "session.context_percent", width: 5 },
+            { type: "meter", label: "5h", source: "usage.five_hour_percent", width: 5 },
+            { type: "meter", label: "wk", source: "usage.weekly_percent", width: 5 },
             { type: "counter", label: "notes", source: "notes.age", suffix: " ago" },
             { type: "text", label: "log", source: "log.ok" },
           ],
@@ -116,6 +132,13 @@ describe("the script", () => {
         ].join(dot),
       ].join("\n"),
     );
+  });
+
+  test("lore.budget_percent: the injection record against the lore budget", async () => {
+    const out = await run({
+      lines: [[{ type: "meter", label: "lore", source: "lore.budget_percent", width: 5 }]],
+    });
+    expect(out).toBe(`${dark("lore")} ${green("▰▱▱▱▱ 10%")}`);
   });
 
   test("a broken file: the default and the error, dimmed", async () => {
@@ -140,7 +163,7 @@ describe("check", () => {
 
   test("the preview shows the colours", async () => {
     const file = `${await tempDir()}/statusline.json`;
-    const meter = { type: "meter", label: "ctx", source: "session.context_pct", width: 4 };
+    const meter = { type: "meter", label: "ctx", source: "session.context_percent", width: 4 };
     const narrator = { type: "text", label: "Narrator", source: "narrator" };
     await Bun.write(
       file,

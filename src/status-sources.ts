@@ -43,6 +43,9 @@ export type StoryFacts = {
   // Turns since the notes job last rewrote the notes; null when it never has.
   notesAgo?: number | null | undefined;
   log?: LogHealth | undefined;
+  // The lore in context (the injection record's characters) as a percent of
+  // the lore budget (spec 20.13); undefined with no budget.
+  loreBudgetPercent?: number | undefined;
 };
 
 // A percent is a number from 0 to 100: a meter shows it without a max.
@@ -70,7 +73,7 @@ const logMarks: Record<LogHealth, string> = { logged: "✓", pending: "…", mis
 
 export const statusSources: readonly SourceInfo[] = [
   {
-    name: "session.context_pct",
+    name: "session.context_percent",
     kind: "percent",
     from: "Claude Code",
     description: "How full the context window is",
@@ -95,14 +98,14 @@ export const statusSources: readonly SourceInfo[] = [
     },
   },
   {
-    name: "usage.session_pct",
+    name: "usage.five_hour_percent",
     kind: "percent",
     from: "Claude Code",
     description: "Plan usage in the current five-hour window (Pro and Max plans)",
     resolve: (input) => percent(input.rate_limits?.five_hour?.used_percentage),
   },
   {
-    name: "usage.weekly_pct",
+    name: "usage.weekly_percent",
     kind: "percent",
     from: "Claude Code",
     description: "Plan usage this week (Pro and Max plans)",
@@ -175,6 +178,13 @@ export const statusSources: readonly SourceInfo[] = [
     description: "Whether the last exchange reached the scene log: ✓, … while a turn runs, ✗",
     resolve: (_, facts) => (facts.log ? logMarks[facts.log] : undefined),
   },
+  {
+    name: "lore.budget_percent",
+    kind: "percent",
+    from: "state",
+    description: "How much of the lore budget the lore now in context uses",
+    resolve: (_, facts) => facts.loreBudgetPercent,
+  },
 ];
 
 export function findSource(name: string): SourceInfo | undefined {
@@ -194,17 +204,28 @@ export function sourceTable(): string {
 }
 
 export function contextPercent(input: StatusInput): number | undefined {
-  const cw = input.context_window;
-  if (!cw) return undefined;
-  if (typeof cw.used_percentage === "number") return Math.round(cw.used_percentage);
-  if (cw.total_input_tokens && cw.context_window_size) {
-    return Math.round((cw.total_input_tokens / cw.context_window_size) * 100);
+  const contextWindow = input.context_window;
+  if (!contextWindow) return undefined;
+  if (typeof contextWindow.used_percentage === "number")
+    return Math.round(contextWindow.used_percentage);
+  if (contextWindow.total_input_tokens && contextWindow.context_window_size) {
+    return Math.round((contextWindow.total_input_tokens / contextWindow.context_window_size) * 100);
   }
   return undefined;
 }
 
 function modelName(input: StatusInput): string | undefined {
   return input.model?.display_name || input.model?.id || undefined;
+}
+
+// Lore characters in context against the budget in characters. Not capped:
+// lowering loreBudget mid-session can leave more lore in context than fits.
+export function loreBudgetPercent(
+  loreCharacters: number,
+  budgetCharacters: number,
+): number | undefined {
+  if (budgetCharacters <= 0) return undefined;
+  return Math.round((loreCharacters / budgetCharacters) * 100);
 }
 
 function percent(value: number | null | undefined): number | undefined {

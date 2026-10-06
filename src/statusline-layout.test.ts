@@ -42,9 +42,9 @@ const two = {
     {
       separator: " · ",
       widgets: [
-        { type: "meter", label: "ctx", source: "session.context_pct", max: 100, width: 10 },
-        { type: "meter", label: "5h", source: "usage.session_pct" },
-        { type: "meter", label: "wk", source: "usage.weekly_pct", width: 5 },
+        { type: "meter", label: "ctx", source: "session.context_percent", max: 100, width: 10 },
+        { type: "meter", label: "5h", source: "usage.five_hour_percent" },
+        { type: "meter", label: "wk", source: "usage.weekly_percent", width: 5 },
         { type: "counter", label: "notes", source: "notes.age", suffix: " ago" },
         { type: "text", label: "log", source: "log.ok" },
       ],
@@ -76,10 +76,10 @@ describe("rendering per type", () => {
   });
 
   test("meter: a dark label, a bar of width cells and the percent, or value/max", () => {
-    expect(render({ type: "meter", source: "session.context_pct", label: "ctx" }, 34)).toBe(
+    expect(render({ type: "meter", source: "session.context_percent", label: "ctx" }, 34)).toBe(
       `${dark("ctx")} ${green("▰▰▰▱▱▱▱▱▱▱ 34%")}`,
     );
-    expect(render({ type: "meter", source: "usage.weekly_pct", width: 4 }, 100)).toBe(
+    expect(render({ type: "meter", source: "usage.weekly_percent", width: 4 }, 100)).toBe(
       red("▰▰▰▰ 100%"),
     );
     expect(render({ type: "meter", source: "notes.age", max: 8, width: 4, label: "n" }, 2)).toBe(
@@ -89,11 +89,11 @@ describe("rendering per type", () => {
   });
 
   test("meter colour follows the fill: green under 60, yellow to 80, red above", () => {
-    const ctx = { type: "meter", source: "session.context_pct", label: "ctx" };
-    expect(render(ctx, 59)).toBe(`${dark("ctx")} ${green("▰▰▰▰▰▰▱▱▱▱ 59%")}`);
-    expect(render(ctx, 60)).toBe(`${dark("ctx")} ${yellow("▰▰▰▰▰▰▱▱▱▱ 60%")}`);
-    expect(render(ctx, 80)).toBe(`${dark("ctx")} ${yellow("▰▰▰▰▰▰▰▰▱▱ 80%")}`);
-    expect(render(ctx, 81)).toBe(`${dark("ctx")} ${red("▰▰▰▰▰▰▰▰▱▱ 81%")}`);
+    const contextMeter = { type: "meter", source: "session.context_percent", label: "ctx" };
+    expect(render(contextMeter, 59)).toBe(`${dark("ctx")} ${green("▰▰▰▰▰▰▱▱▱▱ 59%")}`);
+    expect(render(contextMeter, 60)).toBe(`${dark("ctx")} ${yellow("▰▰▰▰▰▰▱▱▱▱ 60%")}`);
+    expect(render(contextMeter, 80)).toBe(`${dark("ctx")} ${yellow("▰▰▰▰▰▰▰▰▱▱ 80%")}`);
+    expect(render(contextMeter, 81)).toBe(`${dark("ctx")} ${red("▰▰▰▰▰▰▰▰▱▱ 81%")}`);
   });
 
   test("a value/max meter is coloured by its ratio", () => {
@@ -104,12 +104,17 @@ describe("rendering per type", () => {
   });
 
   test("thresholds override the defaults; color false leaves no codes", () => {
-    const ctx = { type: "meter", source: "session.context_pct", width: 4, thresholds: [30, 50] };
-    expect(render(ctx, 29)).toBe(green("▰▱▱▱ 29%"));
-    expect(render(ctx, 30)).toBe(yellow("▰▱▱▱ 30%"));
-    expect(render(ctx, 50)).toBe(yellow("▰▰▱▱ 50%"));
-    expect(render(ctx, 51)).toBe(red("▰▰▱▱ 51%"));
-    const plain = render({ ...ctx, label: "ctx", color: false }, 95);
+    const contextMeter = {
+      type: "meter",
+      source: "session.context_percent",
+      width: 4,
+      thresholds: [30, 50],
+    };
+    expect(render(contextMeter, 29)).toBe(green("▰▱▱▱ 29%"));
+    expect(render(contextMeter, 30)).toBe(yellow("▰▱▱▱ 30%"));
+    expect(render(contextMeter, 50)).toBe(yellow("▰▰▱▱ 50%"));
+    expect(render(contextMeter, 51)).toBe(red("▰▰▱▱ 51%"));
+    const plain = render({ ...contextMeter, label: "ctx", color: false }, 95);
     expect(plain).toBe("ctx ▰▰▰▰ 95%");
     expect(plain).not.toContain("\x1b");
   });
@@ -189,8 +194,8 @@ describe("validation", () => {
     expect(error({ type: "meter", source: "notes.age" })).toBe(
       "line 1, widget 2: a meter of notes.age needs max",
     );
-    expect(error({ type: "meter", source: "usage.weekly_pct", width: 0 })).toContain("width");
-    const meter = { type: "meter", source: "usage.weekly_pct" };
+    expect(error({ type: "meter", source: "usage.weekly_percent", width: 0 })).toContain("width");
+    const meter = { type: "meter", source: "usage.weekly_percent" };
     const thresholds = "line 1, widget 2: thresholds must be two ascending percents, as [60, 80]";
     expect(error({ ...meter, thresholds: [80, 60] })).toBe(thresholds);
     expect(error({ ...meter, thresholds: [60] })).toBe(thresholds);
@@ -233,7 +238,7 @@ describe("validation", () => {
   test("a valid instance keeps only its fields", () => {
     const parsed: Instance | string = parseInstance({
       type: "meter",
-      source: "session.context_pct",
+      source: "session.context_percent",
       max: 100,
       width: 12,
       label: "ctx",
@@ -242,7 +247,7 @@ describe("validation", () => {
     });
     expect(parsed).toEqual({
       type: "meter",
-      source: "session.context_pct",
+      source: "session.context_percent",
       max: 100,
       width: 12,
       label: "ctx",
